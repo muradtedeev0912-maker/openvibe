@@ -111,6 +111,13 @@ export class Agent {
         .map((p) => p.text)
         .join("\n");
     this.bus.emitEvent({ kind: "user", text: display });
+
+    // Check if provider is connected
+    if (!this.config.apiKey) {
+      this.bus.emitEvent({ kind: "error", text: "API not connected. Open Settings (⚙) to add a provider." });
+      return;
+    }
+
     // Plain string when single text part — keeps providers without multimodal happy
     const content: string | ContentPart[] =
       parts.length === 1 && parts[0]!.type === "text"
