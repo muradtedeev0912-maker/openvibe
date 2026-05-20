@@ -106,4 +106,3 @@ const api = {
 };
 
 contextBridge.exposeInMainWorld("vibe", api);
-

@@ -83,4 +83,3 @@ See [LICENSE](LICENSE).
 <p align="center">
   mt-studio@bk.ru
 </p>
-

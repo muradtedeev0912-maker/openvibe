@@ -64,32 +64,35 @@ function Mascot(): React.ReactElement {
 }
 
 export function Banner({ config }: { config: VibeConfig }): React.ReactElement {
+  const [collapsed, setCollapsed] = React.useState(false);
+
   return (
-    <div className="banner">
-      <div className="banner__left">
-        <div className="banner__title">
-          <span className="banner__title-name">vibe</span>
-          <span className="banner__title-version">v0.1.0</span>
+    <div className="banner-wrap">
+      <div className={"banner" + (collapsed ? " banner--collapsed" : "")}>
+        <div className="banner__left">
+          <div className="banner__title">
+            <span className="banner__title-name">vibe</span>
+            <span className="banner__title-version">v0.1.0</span>
+          </div>
+          <div className="banner__welcome">
+            Welcome back, <strong>{username(config.cwd)}</strong>!
+          </div>
+          <AsciiLogo />
+          <div className="banner__model">
+            {config.model && config.model !== "none" && config.apiKey ? (
+              <>
+                {config.model}
+                <em>·</em>
+                {detectProvider(config.baseUrl)}
+              </>
+            ) : (
+              <span style={{ color: "var(--fg-muted)" }}>No model · No provider</span>
+            )}
+          </div>
+          <div className="banner__cwd" title={config.cwd}>
+            {config.cwd}
+          </div>
         </div>
-        <div className="banner__welcome">
-          Welcome back, <strong>{username(config.cwd)}</strong>!
-        </div>
-        <AsciiLogo />
-        <div className="banner__model">
-          {config.model && config.model !== "none" && config.apiKey ? (
-            <>
-              {config.model}
-              <em>·</em>
-              {detectProvider(config.baseUrl)}
-            </>
-          ) : (
-            <span style={{ color: "var(--fg-muted)" }}>No model · No provider</span>
-          )}
-        </div>
-        <div className="banner__cwd" title={config.cwd}>
-          {config.cwd}
-        </div>
-      </div>
       <div className="banner__right">
         <div className="banner__section">Tips for getting started</div>
         <div>
@@ -104,6 +107,17 @@ export function Banner({ config }: { config: VibeConfig }): React.ReactElement {
         <div className="banner__section">Recent activity</div>
         <div className="banner__activity">No recent activity</div>
       </div>
+    </div>
+      <button
+        className={"banner__toggle" + (collapsed ? " banner__toggle--up" : "")}
+        onClick={() => setCollapsed(!collapsed)}
+        title={collapsed ? "Show banner" : "Hide banner"}
+        aria-label="Toggle banner"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M2 8L6 4L10 8" />
+        </svg>
+      </button>
     </div>
   );
 }

@@ -320,9 +320,7 @@ export function History({ items, onPickModel, streamingId }: Props): React.React
                 >
                   <span className="modelpicker__name">{m.name}</span>
                   <span className="modelpicker__id">{m.id}</span>
-                  {m.id === item.currentModel ? (
-                    <span className="modelpicker__check">✓</span>
-                  ) : null}
+                  <span className="modelpicker__check">✓</span>
                 </button>
               ))}
             </div>

@@ -733,18 +733,25 @@ export function App(): React.ReactElement {
                   onPickModel={(id) => {
                     window.vibe.setModel(id);
                     if (config) setConfig({ ...config, model: id });
-                    setItems((p) => [
-                      ...p,
-                      { id: localId(), kind: "info", text: `Switched to: ${id}` },
-                    ]);
+                    // Update the picker item's currentModel without adding chat messages
+                    setItems((p) =>
+                      p.map((it) =>
+                        it.kind === "model-picker" ? { ...it, currentModel: id } : it,
+                      ),
+                    );
                   }}
                 />
                 {busy && !pending ? (
-                  <div className="busy">
-                    <span className="busy__dot" />
-                    <span className="busy__dot" />
-                    <span className="busy__dot" />
-                    <span>thinking…</span>
+                  <div className="loader">
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
+                    <span className="loader__dot" />
                   </div>
                 ) : null}
                 {pending ? (

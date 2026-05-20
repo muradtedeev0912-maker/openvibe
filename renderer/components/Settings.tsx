@@ -27,7 +27,7 @@ interface Props {
 
 export function Settings({ open, onClose, onProviderChanged }: Props): React.ReactElement | null {
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [editing, setEditing] = useState<{ template: typeof PROVIDER_TEMPLATES[0] | null; custom: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ template: typeof PROVIDER_TEMPLATES[0] | null; custom: boolean; editId?: string } | null>(null);
   const [form, setForm] = useState({ apiKey: "", model: "", baseUrl: "", name: "" });
 
   useEffect(() => {
@@ -52,8 +52,30 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
     setForm({ apiKey: "", model: "", baseUrl: "https://", name: "" });
   }
 
+  function startEdit(p: Provider): void {
+    setEditing({ template: null, custom: true, editId: p.id });
+    setForm({ apiKey: p.apiKey, model: p.model, baseUrl: p.baseUrl, name: p.name });
+  }
+
   function confirmConnect(): void {
     if (!form.apiKey.trim()) return;
+
+    // Editing existing provider
+    if (editing?.editId) {
+      const updated = providers.map((p) =>
+        p.id === editing.editId
+          ? { ...p, name: form.name || p.name, apiKey: form.apiKey, model: form.model, baseUrl: form.baseUrl }
+          : p,
+      );
+      save(updated);
+      const p = updated.find((x) => x.id === editing.editId)!;
+      window.vibe.setProvider(p.apiKey, p.baseUrl, p.model);
+      onProviderChanged?.(p.model, p.baseUrl);
+      setEditing(null);
+      return;
+    }
+
+    // New provider
     const id = `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const newP: Provider = {
       id,
@@ -66,7 +88,6 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
     };
     const updated = [...providers, newP];
     save(updated);
-    // Apply as active
     window.vibe.setProvider(newP.apiKey, newP.baseUrl, newP.model);
     onProviderChanged?.(newP.model, newP.baseUrl);
     setEditing(null);
@@ -97,9 +118,9 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
           <div className="settings__form">
             <button className="settings__back" onClick={() => setEditing(null)}>← Back</button>
             <h3 className="settings__form-title">
-              {editing.custom ? "Custom provider" : `Connect ${editing.template?.name}`}
+              {editing.editId ? "Edit provider" : editing.custom ? "Custom provider" : `Connect ${editing.template?.name}`}
             </h3>
-            {editing.custom ? (
+            {(editing.custom || editing.editId) ? (
               <>
                 <label className="settings__label">
                   Name
@@ -121,7 +142,7 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
               <span className="settings__hint">Required. This will appear in /model list.</span>
             </label>
             <button className="settings__save" onClick={confirmConnect} disabled={!form.apiKey.trim() || !form.model.trim()}>
-              Connect
+              {editing.editId ? "Save" : "Connect"}
             </button>
           </div>
         ) : (
@@ -139,8 +160,10 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
                       <div className="settings__row-desc">{p.baseUrl}</div>
                     </div>
                     <div className="settings__row-actions">
-                      <button className="settings__use" onClick={() => activate(p)}>Use</button>
-                      <button className="settings__disconnect" onClick={() => disconnect(p.id)}>×</button>
+                      <button className="settings__edit" onClick={() => startEdit(p)} title="Edit">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z"/></svg>
+                      </button>
+                      <button className="settings__disconnect" onClick={() => disconnect(p.id)}>Disconnect</button>
                     </div>
                   </div>
                 ))}
