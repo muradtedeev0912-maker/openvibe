@@ -51,9 +51,15 @@ export function loadConfig(opts: { autoApprove: boolean }): Config {
   if (!model) model = "gpt-4o-mini";
 
   if (!apiKey) {
-    throw new Error(
-      "No API key found. Set VIBE_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY in .env, ~/.vibe/config, or the environment.",
-    );
+    // No key configured — app will start but agent won't work until
+    // user connects a provider through Settings UI.
+    return {
+      apiKey: "",
+      baseUrl: baseUrl || "https://api.openai.com/v1",
+      model: model || "none",
+      cwd: process.cwd(),
+      autoApprove: opts.autoApprove,
+    };
   }
 
   return {
