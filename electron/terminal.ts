@@ -1,4 +1,4 @@
-import * as nodePty from "@homebridge/node-pty-prebuilt-multiarch";
+import * as nodePty from "node-pty";
 import { existsSync } from "node:fs";
 
 type IPty = ReturnType<typeof nodePty.spawn>;
