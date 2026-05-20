@@ -8,7 +8,6 @@ import type {
   VibeConfig,
   VibeEvent,
 } from "../types.js";
-import { Banner } from "./Banner.js";
 import { ChatRail } from "./ChatRail.js";
 import { ChatSidebar } from "./ChatSidebar.js";
 import { Composer, type SendPayload } from "./Composer.js";
@@ -21,7 +20,6 @@ import { Terminals } from "./Terminals.js";
 import { Titlebar } from "./Titlebar.js";
 
 type FatalState = { kind: "ok" } | { kind: "fatal"; error: string };
-type Tab = "chat" | "terminal" | "editor";
 
 let nextLocalId = 0;
 const localId = (): string => `l${++nextLocalId}`;
@@ -92,13 +90,17 @@ export function App(): React.ReactElement {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<ConfirmPayload | null>(null);
-  const [tab, setTab] = useState<Tab>("chat");
+  const [termVisible, setTermVisible] = useState(false);
+  const [editorVisible, setEditorVisible] = useState(false);
   const [folder, setFolder] = useState<string | null>(null);
   const [editorPath, setEditorPath] = useState<string | null>(null);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [chatSideOpen, setChatSideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [termHeight, setTermHeight] = useState(220);
+  const [editorWidth, setEditorWidth] = useState(420);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const streamingId = useRef<string | null>(null);
@@ -424,12 +426,12 @@ export function App(): React.ReactElement {
 
   const handleOpenFile = useCallback((path: string) => {
     setEditorPath(path);
-    setTab("editor");
+    setEditorVisible(true);
   }, []);
 
   const handleCloseEditor = useCallback(() => {
     setEditorPath(null);
-    setTab("chat");
+    setEditorVisible(false);
   }, []);
 
   const handleNewChat = useCallback(async () => {
@@ -679,110 +681,141 @@ export function App(): React.ReactElement {
           onClose={() => setChatSideOpen(false)}
         />
         <div className="app__content">
-          <Banner config={{ ...config, cwd: folder ?? config.cwd }} />
           <div className="layout">
             <div className="layout__main">
               <div className="tabs">
                 <button
-                  className={
-                    "tabs__btn" + (tab === "chat" ? " tabs__btn--active" : "")
-                  }
-                  onClick={() => setTab("chat")}
+                  className={"tabs__btn tabs__btn--active"}
+                  title="Chat"
                 >
-                  chat
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
                 </button>
                 <button
-                  className={
-                    "tabs__btn" + (tab === "terminal" ? " tabs__btn--active" : "")
-                  }
-                  onClick={() => setTab("terminal")}
+                  className={"tabs__btn" + (termVisible ? " tabs__btn--active" : "")}
+                  onClick={() => setTermVisible(!termVisible)}
+                  title="Terminal"
                 >
-                  terminal
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 17 10 11 4 5"/>
+                    <line x1="12" y1="19" x2="20" y2="19"/>
+                  </svg>
                 </button>
-                {editorPath ? (
-                  <button
-                    className={
-                      "tabs__btn tabs__btn--editor" +
-                      (tab === "editor" ? " tabs__btn--active" : "")
-                    }
-                    onClick={() => setTab("editor")}
-                    title={editorPath}
-                  >
-                    {editorPath.split(/[\\/]/).pop()}
-                    <span
-                      className="tabs__close"
-                      role="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCloseEditor();
-                      }}
-                    >
-                      ×
-                    </span>
-                  </button>
-                ) : null}
+                <div className="tabs__spacer" />
+                <button
+                  className={"tabs__btn" + (editorVisible && editorPath ? " tabs__btn--active" : "")}
+                  onClick={() => {
+                    if (editorPath) setEditorVisible(!editorVisible);
+                  }}
+                  title="Editor"
+                  disabled={!editorPath}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                </button>
+                <button
+                  className={"tabs__btn" + (sidebarVisible ? " tabs__btn--active" : "")}
+                  onClick={() => setSidebarVisible(!sidebarVisible)}
+                  title="Toggle files"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </button>
               </div>
 
-              <div
-                className="view"
-                style={{ display: tab === "chat" ? "flex" : "none" }}
-              >
-                <History
-                  items={items}
-                  streamingId={streamingNow}
-                  onPickModel={(id) => {
-                    window.vibe.setModel(id);
-                    if (config) setConfig({ ...config, model: id });
-                    // Update the picker item's currentModel without adding chat messages
-                    setItems((p) =>
-                      p.map((it) =>
-                        it.kind === "model-picker" ? { ...it, currentModel: id } : it,
-                      ),
-                    );
-                  }}
-                />
-                {busy && !pending ? (
-                  <div className="loader">
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
+              <div className="main__split">
+                <div className="main__chat">
+                  <History
+                    items={items}
+                    streamingId={streamingNow}
+                    onPickModel={(id) => {
+                      window.vibe.setModel(id);
+                      if (config) setConfig({ ...config, model: id });
+                      setItems((p) =>
+                        p.map((it) =>
+                          it.kind === "model-picker" ? { ...it, currentModel: id } : it,
+                        ),
+                      );
+                    }}
+                  />
+                  {busy && !pending ? (
+                    <div className="loader">
+                      <div className="loader__grid">
+                        <span className="loader__dot" /><span className="loader__dot" /><span className="loader__dot" />
+                        <span className="loader__dot" /><span className="loader__dot" /><span className="loader__dot" />
+                        <span className="loader__dot" /><span className="loader__dot" /><span className="loader__dot" />
+                      </div>
+                      <span className="loader__text">thinking...</span>
+                    </div>
+                  ) : null}
+                  {pending ? (
+                    <Confirm payload={pending} onDecide={handleDecide} />
+                  ) : (
+                    <Composer
+                      disabled={busy}
+                      workspace={folder ?? config.cwd}
+                      onSubmit={handleSubmit}
+                    />
+                  )}
+                </div>
+
+                {termVisible ? (
+                  <div className="main__terminal" style={{ height: termHeight }}>
+                    <div
+                      className="resize-handle"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const startY = e.clientY;
+                        const startH = termHeight;
+                        const onMove = (ev: MouseEvent) => {
+                          const diff = startY - ev.clientY;
+                          setTermHeight(Math.max(100, Math.min(500, startH + diff)));
+                        };
+                        const onUp = () => {
+                          window.removeEventListener("mousemove", onMove);
+                          window.removeEventListener("mouseup", onUp);
+                        };
+                        window.addEventListener("mousemove", onMove);
+                        window.addEventListener("mouseup", onUp);
+                      }}
+                    />
+                    <Terminals active={true} />
                   </div>
                 ) : null}
-                {pending ? (
-                  <Confirm payload={pending} onDecide={handleDecide} />
-                ) : (
-                  <Composer
-                    disabled={busy}
-                    workspace={folder ?? config.cwd}
-                    onSubmit={handleSubmit}
-                  />
-                )}
               </div>
-
-              <div
-                className="view"
-                style={{ display: tab === "terminal" ? "flex" : "none" }}
-              >
-                <Terminals active={tab === "terminal"} />
-              </div>
-
-              {editorPath ? (
-                <div
-                  className="view"
-                  style={{ display: tab === "editor" ? "flex" : "none" }}
-                >
-                  <Editor path={editorPath} onClose={handleCloseEditor} />
-                </div>
-              ) : null}
             </div>
 
-            <aside className="sidebar">
+            {editorVisible && editorPath ? (
+              <>
+                <div
+                  className="layout__divider"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const startX = e.clientX;
+                    const startW = editorWidth;
+                    const onMove = (ev: MouseEvent) => {
+                      const diff = startX - ev.clientX;
+                      setEditorWidth(Math.max(200, Math.min(900, startW + diff)));
+                    };
+                    const onUp = () => {
+                      window.removeEventListener("mousemove", onMove);
+                      window.removeEventListener("mouseup", onUp);
+                    };
+                    window.addEventListener("mousemove", onMove);
+                    window.addEventListener("mouseup", onUp);
+                  }}
+                />
+                <div className="layout__editor" style={{ width: editorWidth }}>
+                  <Editor path={editorPath} onClose={handleCloseEditor} />
+                </div>
+              </>
+            ) : null}
+
+            <aside className={"sidebar" + (sidebarVisible ? " sidebar--open" : "")}>
               <FileTree
                 cwd={folder ?? config.cwd}
                 onPickFolder={handlePickFolder}

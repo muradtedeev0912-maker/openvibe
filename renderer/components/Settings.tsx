@@ -109,14 +109,19 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
   return (
     <div className="settings__overlay" onClick={onClose}>
       <div className="settings" onClick={(e) => e.stopPropagation()}>
-        <div className="settings__header">
-          <h2>Settings</h2>
-          <button className="settings__close" onClick={onClose}>×</button>
-        </div>
+        {!editing ? (
+          <div className="settings__header">
+            <h2>Settings</h2>
+            <button className="settings__close" onClick={onClose}>×</button>
+          </div>
+        ) : null}
 
         {editing ? (
           <div className="settings__form">
-            <button className="settings__back" onClick={() => setEditing(null)}>← Back</button>
+            <div className="settings__form-nav">
+              <button className="settings__back" onClick={() => setEditing(null)}>←</button>
+              <button className="settings__close" onClick={onClose}>×</button>
+            </div>
             <h3 className="settings__form-title">
               {editing.editId ? "Edit provider" : editing.custom ? "Custom provider" : `Connect ${editing.template?.name}`}
             </h3>
@@ -178,7 +183,7 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
                     <div className="settings__row-name">{t.name}</div>
                     <div className="settings__row-desc">{t.description}</div>
                   </div>
-                  <button className="settings__connect" onClick={() => startConnect(t)}>+ Connect</button>
+                  <button className="settings__connect" onClick={() => startConnect(t)}>Connect</button>
                 </div>
               ))}
               <div className="settings__row settings__row--custom">
@@ -186,7 +191,7 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
                   <div className="settings__row-name">Custom provider</div>
                   <div className="settings__row-desc">Any OpenAI-compatible endpoint</div>
                 </div>
-                <button className="settings__connect" onClick={startCustom}>+ Connect</button>
+                <button className="settings__connect" onClick={startCustom}>Connect</button>
               </div>
             </div>
           </>

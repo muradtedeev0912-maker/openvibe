@@ -46,6 +46,8 @@ async function createWindow(): Promise<void> {
     },
   });
 
+  mainWindow.maximize();
+
   const devUrl = process.env.VIBE_DEV_URL;
   if (devUrl) {
     await mainWindow.loadURL(devUrl);

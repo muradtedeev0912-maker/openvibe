@@ -506,13 +506,6 @@ export function FileTree({
         <span className="ftree__root" title={cwd}>
           {basename(cwd)}
         </span>
-        <button
-          className="ftree__pick"
-          onClick={onPickFolder}
-          title="Open another folder"
-        >
-          open…
-        </button>
       </div>
       <div
         className="ftree__body"
