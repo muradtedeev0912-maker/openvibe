@@ -133,7 +133,7 @@ export function App(): React.ReactElement {
           if (active) {
             const model = active.model || "";
             window.vibe.setProvider(active.apiKey, active.baseUrl, model);
-            if (model) setConfig((c) => c ? { ...c, model } : c);
+            setConfig((c) => c ? { ...c, model, baseUrl: active.baseUrl, apiKey: "***" } : c);
           }
         } catch { /* ignore */ }
       }
