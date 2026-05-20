@@ -143,6 +143,7 @@ ipcMain.handle("vibe:init", () => {
       baseUrl: config!.baseUrl,
       cwd: config!.cwd,
       autoApprove: config!.autoApprove,
+      apiKey: config!.apiKey ? "***" : "",
     },
   };
 });
