@@ -76,9 +76,15 @@ export function Banner({ config }: { config: VibeConfig }): React.ReactElement {
         </div>
         <AsciiLogo />
         <div className="banner__model">
-          {config.model}
-          <em>·</em>
-          {detectProvider(config.baseUrl)}
+          {config.model && config.model !== "none" && config.apiKey ? (
+            <>
+              {config.model}
+              <em>·</em>
+              {detectProvider(config.baseUrl)}
+            </>
+          ) : (
+            <span style={{ color: "var(--fg-muted)" }}>No model · No provider</span>
+          )}
         </div>
         <div className="banner__cwd" title={config.cwd}>
           {config.cwd}
