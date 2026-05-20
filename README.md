@@ -8,6 +8,10 @@
   Agentic coding environment. Bring your own model.
 </p>
 
+<p align="center">
+  <a href="https://openvibe-beta.vercel.app">Website</a> · <a href="https://github.com/muradtedeev0912-maker/openvibe">GitHub</a>
+</p>
+
 ---
 
 ## About
@@ -19,7 +23,7 @@ openvibe is a desktop application that gives you an AI coding assistant, termina
 ## Install
 
 ```bash
-git clone https://github.com/mttscode/openvibe.git
+git clone https://github.com/muradtedeev0912-maker/openvibe.git
 cd openvibe
 npm install
 ```
