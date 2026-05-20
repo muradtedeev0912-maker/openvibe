@@ -18,6 +18,16 @@ export function Titlebar(): React.ReactElement {
           </svg>
         </button>
         <button
+          className="titlebar__btn"
+          onClick={() => window.vibe.window.maximize()}
+          title="Maximize"
+          aria-label="Maximize"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <rect x="1" y="1" width="8" height="8" />
+          </svg>
+        </button>
+        <button
           className="titlebar__btn titlebar__btn--close"
           onClick={() => window.vibe.window.close()}
           title="Close"
