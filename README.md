@@ -8,10 +8,6 @@
   Agentic coding environment. Bring your own model.
 </p>
 
-<p align="center">
-  <img src="landing/canvas.png" width="700" alt="screenshot" />
-</p>
-
 ---
 
 ## About
@@ -83,3 +79,4 @@ See [LICENSE](LICENSE).
 <p align="center">
   mt-studio@bk.ru
 </p>
+
