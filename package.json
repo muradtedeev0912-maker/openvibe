@@ -1,0 +1,55 @@
+{
+  "name": "openvibe",
+  "version": "0.1.0",
+  "description": "Open-source agentic coding environment. Bring your own AI model.",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "mt-studio <mt-studio@bk.ru>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mttscode/openvibe"
+  },
+  "type": "module",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev:renderer": "vite",
+    "dev:electron": "tsc -p tsconfig.node.json --watch",
+    "build:renderer": "vite build",
+    "build:node": "tsc -p tsconfig.node.json",
+    "copy:preload": "node -e \"import('node:fs').then(({copyFileSync,mkdirSync})=>{mkdirSync('dist/electron',{recursive:true});copyFileSync('electron/preload.cjs','dist/electron/preload.cjs')})\"",
+    "build": "npm run build:renderer && npm run build:node && npm run copy:preload",
+    "start": "electron .",
+    "dev": "node scripts/dev.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.12.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "monaco-editor": "^0.52.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.29",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0"
+  },
+  "keywords": [
+    "agent",
+    "ai",
+    "llm",
+    "coding",
+    "claude-code",
+    "openai",
+    "electron",
+    "desktop"
+  ]
+}
