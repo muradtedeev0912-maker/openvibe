@@ -6,6 +6,7 @@ export interface VibeConfig {
   baseUrl: string;
   cwd: string;
   autoApprove: boolean;
+  apiKey: string;
 }
 
 export type ContentPart =
