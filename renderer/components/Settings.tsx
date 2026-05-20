@@ -22,9 +22,10 @@ const PROVIDER_TEMPLATES = [
 interface Props {
   open: boolean;
   onClose: () => void;
+  onProviderChanged?: (model: string, baseUrl: string) => void;
 }
 
-export function Settings({ open, onClose }: Props): React.ReactElement | null {
+export function Settings({ open, onClose, onProviderChanged }: Props): React.ReactElement | null {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [editing, setEditing] = useState<{ template: typeof PROVIDER_TEMPLATES[0] | null; custom: boolean } | null>(null);
   const [form, setForm] = useState({ apiKey: "", model: "", baseUrl: "", name: "" });
@@ -67,6 +68,7 @@ export function Settings({ open, onClose }: Props): React.ReactElement | null {
     save(updated);
     // Apply as active
     window.vibe.setProvider(newP.apiKey, newP.baseUrl, newP.model);
+    onProviderChanged?.(newP.model, newP.baseUrl);
     setEditing(null);
   }
 
@@ -76,6 +78,7 @@ export function Settings({ open, onClose }: Props): React.ReactElement | null {
 
   function activate(p: Provider): void {
     window.vibe.setProvider(p.apiKey, p.baseUrl, p.model);
+    onProviderChanged?.(p.model, p.baseUrl);
   }
 
   if (!open) return null;
