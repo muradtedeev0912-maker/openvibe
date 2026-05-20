@@ -34,8 +34,8 @@ async function createWindow(): Promise<void> {
     title: "vibe",
     icon: join(__dirname, "../../assets/icon.png"),
     autoHideMenuBar: true,
-    maximizable: false,
-    fullscreenable: false,
+    maximizable: true,
+    fullscreenable: true,
     frame: false,
     titleBarStyle: "hidden",
     webPreferences: {
@@ -307,6 +307,10 @@ ipcMain.handle("vibe:pickWorkspace", async () => {
 });
 
 ipcMain.handle("vibe:window:minimize", () => mainWindow?.minimize());
+ipcMain.handle("vibe:window:maximize", () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
+});
 ipcMain.handle("vibe:window:close", () => mainWindow?.close());
 
 ipcMain.handle("vibe:setModel", (_e, model: string) => {
@@ -583,8 +587,4 @@ app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
-});
-
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
