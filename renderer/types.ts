@@ -91,6 +91,7 @@ export interface VibeApi {
   pickWorkspace: () => Promise<string | null>;
   window: {
     minimize: () => Promise<void>;
+    maximize: () => Promise<void>;
     close: () => Promise<void>;
   };
   setModel: (model: string) => Promise<void>;
