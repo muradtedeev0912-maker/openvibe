@@ -789,6 +789,9 @@ export function App(): React.ReactElement {
       <Settings
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onProviderChanged={(model, baseUrl) => {
+          if (config) setConfig({ ...config, model, baseUrl, apiKey: "***" });
+        }}
       />
     </div>
   );
