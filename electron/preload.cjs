@@ -12,6 +12,7 @@ const api = {
 
   window: {
     minimize: () => ipcRenderer.invoke("vibe:window:minimize"),
+    maximize: () => ipcRenderer.invoke("vibe:window:maximize"),
     close: () => ipcRenderer.invoke("vibe:window:close"),
   },
 
@@ -105,3 +106,4 @@ const api = {
 };
 
 contextBridge.exposeInMainWorld("vibe", api);
+
