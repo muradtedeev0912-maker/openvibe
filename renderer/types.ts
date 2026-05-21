@@ -87,6 +87,7 @@ export interface VibeApi {
     display?: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   reset: () => Promise<void>;
+  stop: () => Promise<void>;
   decide: (id: string, decision: "yes" | "no" | "always") => Promise<void>;
   pickWorkspace: () => Promise<string | null>;
   window: {

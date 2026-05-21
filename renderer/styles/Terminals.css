@@ -1,0 +1,117 @@
+/* Embedded Terminal */
+.terminal-embedded {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.terminal-embedded .terminals {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+/* ===== Terminals (multi-tab + xterm) ===== */
+.terminals {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 0;
+  background: #161616;
+}
+.termtabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.termtabs::-webkit-scrollbar { display: none; }
+.termtabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+.termtabs__tab:hover {
+  color: var(--fg-dim);
+  background: var(--bg-2);
+}
+.termtabs__tab--active {
+  color: var(--fg);
+  background: var(--bg-2);
+  border-color: var(--line);
+}
+.termtabs__close {
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.termtabs__close:hover {
+  background: var(--line);
+  color: var(--fg);
+}
+.termtabs__new {
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 14px;
+  padding: 4px 10px;
+  margin-left: 4px;
+  border-radius: 4px;
+}
+.termtabs__new:hover {
+  color: var(--fg);
+  background: var(--bg-2);
+}
+
+.terminals__panes {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+}
+.termpane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.termpane__xterm {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px 10px;
+}
+.termpane__xterm .xterm,
+.termpane__xterm .xterm-viewport,
+.termpane__xterm .xterm-screen {
+  height: 100%;
+}
+.termpane__xterm .xterm-viewport {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.termpane__xterm .xterm-viewport::-webkit-scrollbar { width: 6px; }
+.termpane__xterm .xterm-viewport::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }

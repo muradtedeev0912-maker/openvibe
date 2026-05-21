@@ -1,4 +1,7 @@
 import React, { useEffect, useRef } from "react";
+import "../styles/History.css";
+import "../styles/Tool.css";
+import "../styles/FBadge.css";
 
 export interface AttachmentView {
   id: string;
@@ -197,18 +200,18 @@ const ICON_MAP_HISTORY: Record<string, string> = {
 function CheckIcon(): React.ReactElement {
   return (
     <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="3"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
+      style={{ background: "var(--green)", color: "var(--bg)", borderRadius: "50%", padding: "2px" }}
     >
-      <circle cx="8" cy="8" r="6.5" />
-      <path d="M5 8.5l2 2 4-4.5" />
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
@@ -250,6 +253,26 @@ function SpinIcon(): React.ReactElement {
   );
 }
 
+function StopIcon(): React.ReactElement {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+  );
+}
+
 function ToolBlock({ item }: { item: HistoryItem }): React.ReactElement {
   const { verb, file, suffix } = describe(item);
   const stateCls =
@@ -287,10 +310,201 @@ function ToolBlock({ item }: { item: HistoryItem }): React.ReactElement {
 interface Props {
   items: HistoryItem[];
   onPickModel?: (id: string) => void;
+  onRegenerate?: (id: string) => void;
   streamingId?: string | null;
+  busy?: boolean;
 }
 
-export function History({ items, onPickModel, streamingId }: Props): React.ReactElement {
+function DiffIcon(): React.ReactElement {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+      <line x1="3" y1="9" x2="9" y2="9" />
+      <line x1="3" y1="15" x2="9" y2="15" />
+    </svg>
+  );
+}
+
+function CircularProgress({ percent }: { percent: number }): React.ReactElement {
+  const radius = 7;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" style={{ transform: "rotate(-90deg)" }}>
+      <circle
+        cx="10"
+        cy="10"
+        r={radius}
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="transparent"
+        opacity="0.2"
+      />
+      <circle
+        cx="10"
+        cy="10"
+        r={radius}
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="transparent"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function LikeIcon(): React.ReactElement {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  );
+}
+
+function DislikeIcon(): React.ReactElement {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+    </svg>
+  );
+}
+
+function MessageFooter({
+  item,
+  items,
+  onRegenerate,
+}: {
+  item: HistoryItem;
+  items: HistoryItem[];
+  onRegenerate?: (id: string) => void;
+}): React.ReactElement {
+  const [copied, setCopied] = React.useState(false);
+  const hasDiff = React.useMemo(() => {
+    // Find index of this item
+    const idx = items.findIndex((it) => it.id === item.id);
+    if (idx <= 0) return false;
+    // Look at items between this assistant message and the previous user message
+    for (let i = idx - 1; i >= 0; i--) {
+      const it = items[i]!;
+      if (it.kind === "user") break;
+      if (it.kind === "tool" && (it.toolName === "edit_file" || it.toolName === "write_file")) {
+        return true;
+      }
+    }
+    return false;
+  }, [item.id, items]);
+
+  const contextUsage = React.useMemo(() => {
+    // Heuristic: count total characters in history as a proxy for tokens
+    const totalChars = items.reduce((acc, it) => acc + it.text.length, 0);
+    // Assume 128k context (common for GPT-4o) and ~4 chars per token
+    const estimatedTokens = totalChars / 4;
+    const maxTokens = 128000;
+    const percent = Math.min(100, Math.max(1, Math.round((estimatedTokens / maxTokens) * 100)));
+    return percent;
+  }, [items]);
+
+  const onCopy = () => {
+    navigator.clipboard.writeText(item.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="msg__footer">
+      <div className="msg__separator" />
+      <div className="msg__footer-content">
+        <div className="msg__footer-left">
+          <div className="msg__footer-item msg__footer-item--green">
+            <CheckIcon />
+            <span>Completed</span>
+          </div>
+          <span className="msg__footer-sep">|</span>
+          {hasDiff && (
+            <>
+              <div className="msg__footer-item">
+                <DiffIcon />
+                <span>Diff</span>
+              </div>
+              <span className="msg__footer-sep">|</span>
+            </>
+          )}
+          <div className="msg__footer-item">
+            <div className="context-usage">
+              <CircularProgress percent={contextUsage} />
+              <span>{contextUsage}%</span>
+            </div>
+          </div>
+        </div>
+        <div className="msg__footer-right">
+          <button className="msg__footer-btn" onClick={onCopy} title="Copy">
+            {copied ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            )}
+          </button>
+          <button
+            className="msg__footer-btn"
+            onClick={() => onRegenerate?.(item.id)}
+            title="Regenerate"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const VIBE_PHRASES = [
+  "Vibing...",
+  "Catching the flow...",
+  "Brewing code...",
+  "Feeling the logic...",
+  "Chilling with the bits...",
+  "Surfing the syntax...",
+
+];
+
+function VibingLoader({ text, isInline }: { text?: string; isInline?: boolean }): React.ReactElement {
+  const phrase = React.useMemo(() => {
+    if (text !== undefined) return text;
+    return VIBE_PHRASES[Math.floor(Math.random() * VIBE_PHRASES.length)];
+  }, [text]);
+
+  return (
+    <div className={`msg--thinking ${isInline ? "msg--thinking--inline" : ""}`}>
+      <div className="loader">
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+        <span className="loader__dot" />
+      </div>
+      {phrase && <span className="msg--thinking__text">{phrase}</span>}
+    </div>
+  );
+}
+
+export function History({ items, onPickModel, onRegenerate, streamingId, busy }: Props): React.ReactElement {
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -299,7 +513,7 @@ export function History({ items, onPickModel, streamingId }: Props): React.React
     // auto-scroll only if user is already near the bottom
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
     if (nearBottom) el.scrollTop = el.scrollHeight;
-  }, [items]);
+  }, [items, busy]);
 
   return (
     <div className="history" ref={ref}>
@@ -358,15 +572,33 @@ export function History({ items, onPickModel, streamingId }: Props): React.React
           );
         }
         const cls = `msg msg--${item.kind}`;
+        const isStreaming = item.kind === "assistant" && item.id === streamingId;
+
+        if (item.kind === "info" && item.text === "Manually Stopped") {
+          return (
+            <div key={item.id} className="msg msg--info msg--stopped">
+              <StopIcon />
+              <span>{item.text}</span>
+            </div>
+          );
+        }
+
         return (
           <div key={item.id} className={cls}>
             {item.text}
-            {item.kind === "assistant" && item.id === streamingId ? (
-              <span className="msg__cursor" />
-            ) : null}
+            {isStreaming && (
+              <VibingLoader text={item.text.length > 0 ? "" : undefined} isInline={item.text.length > 0} />
+            )}
+            {item.kind === "assistant" && !isStreaming && item.text.length > 0 && (
+              <MessageFooter item={item} items={items} onRegenerate={onRegenerate} />
+            )}
           </div>
         );
       })}
+
+      {busy && !streamingId && !items.some(it => it.kind === "tool" && it.ok === undefined) && (
+        <VibingLoader />
+      )}
     </div>
   );
 }

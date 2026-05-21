@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatSummary } from "../types.js";
+import "../styles/ChatSidebar.css";
 
 interface Props {
   open: boolean;
@@ -34,11 +35,14 @@ function PenIcon(): React.ReactElement {
 
 function HandleIcon(): React.ReactElement {
   return (
-    <span className="grid-icon" aria-hidden="true">
-      <span /><span /><span />
-      <span /><span /><span />
-      <span /><span /><span />
-    </span>
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden>
+      <circle cx="3" cy="3" r="1" />
+      <circle cx="7" cy="3" r="1" />
+      <circle cx="3" cy="7" r="1" />
+      <circle cx="7" cy="7" r="1" />
+      <circle cx="3" cy="11" r="1" />
+      <circle cx="7" cy="11" r="1" />
+    </svg>
   );
 }
 

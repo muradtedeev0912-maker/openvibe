@@ -1,4 +1,5 @@
 import React from "react";
+import "../styles/Titlebar.css";
 
 export function Titlebar(): React.ReactElement {
   return (
@@ -13,8 +14,8 @@ export function Titlebar(): React.ReactElement {
           title="Minimize"
           aria-label="Minimize"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 6h8" />
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <path d="M1 5h8" />
           </svg>
         </button>
         <button
@@ -23,8 +24,8 @@ export function Titlebar(): React.ReactElement {
           title="Maximize"
           aria-label="Maximize"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="2" width="8" height="8" />
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <rect x="1" y="1" width="8" height="8" />
           </svg>
         </button>
         <button
@@ -33,8 +34,8 @@ export function Titlebar(): React.ReactElement {
           title="Close"
           aria-label="Close"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 2l8 8M10 2l-8 8" />
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <path d="M1 1l8 8M9 1l-8 8" />
           </svg>
         </button>
       </div>

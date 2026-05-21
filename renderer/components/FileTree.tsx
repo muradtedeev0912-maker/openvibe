@@ -1,7 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { FsEntry } from "../types.js";
+import "../styles/FileTree.css";
 import { ContextMenu, type MenuItem } from "./ContextMenu.js";
-import { FileIcon, FolderIcon } from "./icons.js";
+import {
+  FileIcon,
+  FolderIcon,
+  ChevronRightIcon,
+  CollapseAllIcon,
+  NewFileIcon,
+  NewFolderIcon,
+  RefreshIcon
+} from "./icons.js";
 
 interface NodeState {
   open: boolean;
@@ -20,7 +29,6 @@ interface CtxState {
 
 interface RootProps {
   cwd: string;
-  onPickFolder: () => void;
   onOpenFile: (path: string) => void;
   activeFile: string | null;
 }
@@ -186,9 +194,13 @@ function FileNode(props: NodeProps): React.ReactElement {
         title={entry.path}
       >
         <span className="ftree__chev">
-          {entry.isDir ? (open ? "▾" : "▸") : ""}
+          {entry.isDir ? <ChevronRightIcon open={open} /> : null}
         </span>
-        {entry.isDir ? <FolderIcon open={open} /> : <FileIcon name={entry.name} />}
+        {entry.isDir ? (
+          <FolderIcon open={open} name={entry.name} />
+        ) : (
+          <FileIcon name={entry.name} />
+        )}
         {isRenaming ? (
           <RenameInput
             initial={entry.name}
@@ -205,24 +217,35 @@ function FileNode(props: NodeProps): React.ReactElement {
           </span>
         )}
       </div>
-      {open && state?.loading ? (
-        <div
-          className="ftree__loading"
-          style={{ paddingLeft: 8 + (depth + 1) * 12 }}
-        >
-          loading…
-        </div>
-      ) : null}
-      {open && state?.error ? (
-        <div
-          className="ftree__error"
-          style={{ paddingLeft: 8 + (depth + 1) * 12 }}
-        >
-          {state.error}
-        </div>
-      ) : null}
-      {open && state?.children
-        ? state.children.map((c) => (
+      <div
+        className={
+          "ftree__subtree" + (open ? " ftree__subtree--open" : "")
+        }
+      >
+        <div className="ftree__subtree-content">
+          {open && (
+            <div
+              className="ftree__line"
+              style={{ left: 8 + depth * 12 + 6 }}
+            />
+          )}
+          {state?.loading ? (
+            <div
+              className="ftree__loading"
+              style={{ paddingLeft: 8 + (depth + 1) * 12 }}
+            >
+              loading…
+            </div>
+          ) : null}
+          {state?.error ? (
+            <div
+              className="ftree__error"
+              style={{ paddingLeft: 8 + (depth + 1) * 12 }}
+            >
+              {state.error}
+            </div>
+          ) : null}
+          {state?.children?.map((c) => (
             <FileNode
               key={c.path}
               entry={c}
@@ -239,8 +262,9 @@ function FileNode(props: NodeProps): React.ReactElement {
               cutPath={cutPath}
               refreshAll={refreshAll}
             />
-          ))
-        : null}
+          ))}
+        </div>
+      </div>
     </>
   );
 }
@@ -293,7 +317,6 @@ function RenameInput({
 
 export function FileTree({
   cwd,
-  onPickFolder,
   onOpenFile,
   activeFile,
 }: RootProps): React.ReactElement {
@@ -500,12 +523,54 @@ export function FileTree({
     await refreshDir(parent);
   }
 
+  function collapseAll(): void {
+    setStates((prev) => {
+      const map = new Map(prev);
+      for (const [path, state] of map.entries()) {
+        if (state.open) {
+          map.set(path, { ...state, open: false });
+        }
+      }
+      return map;
+    });
+  }
+
   return (
     <div className="ftree">
       <div className="ftree__header">
         <span className="ftree__root" title={cwd}>
           {basename(cwd)}
         </span>
+        <div className="ftree__actions">
+          <button
+            className="ftree__action"
+            onClick={() => promptCreate(cwd, "file")}
+            title="New file"
+          >
+            <NewFileIcon />
+          </button>
+          <button
+            className="ftree__action"
+            onClick={() => promptCreate(cwd, "dir")}
+            title="New folder"
+          >
+            <NewFolderIcon />
+          </button>
+          <button
+            className="ftree__action"
+            onClick={refreshAll}
+            title="Refresh"
+          >
+            <RefreshIcon />
+          </button>
+          <button
+            className="ftree__action"
+            onClick={collapseAll}
+            title="Collapse all"
+          >
+            <CollapseAllIcon />
+          </button>
+        </div>
       </div>
       <div
         className="ftree__body"
@@ -524,7 +589,9 @@ export function FileTree({
         ) : null}
         {creating && creating.dir === cwd ? (
           <div className="ftree__row" style={{ paddingLeft: 8 }}>
-            <span className="ftree__chev" />
+            <span className="ftree__chev">
+              {creating.kind === "dir" ? <ChevronRightIcon open={false} /> : null}
+            </span>
             {creating.kind === "dir" ? <FolderIcon open={false} /> : <FileIcon />}
             <RenameInput
               initial=""

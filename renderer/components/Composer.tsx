@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ContentPart, FileMatch } from "../types.js";
+import "../styles/Composer.css";
+import "../styles/FBadge.css";
 
 export interface SlashCommand {
   name: string;
@@ -36,6 +38,12 @@ interface Props {
   disabled: boolean;
   workspace: string;
   onSubmit: (payload: SendPayload | { slash: string }) => void;
+  onStop: () => void;
+  terminalOpen: boolean;
+  onToggleTerminal: () => void;
+  models: Array<{ id: string; name: string }>;
+  currentModel: string;
+  onPickModel: (id: string) => void;
 }
 
 interface MentionState {
@@ -70,11 +78,18 @@ export function Composer({
   disabled,
   workspace,
   onSubmit,
+  onStop,
+  terminalOpen,
+  onToggleTerminal,
+  models,
+  currentModel,
+  onPickModel,
 }: Props): React.ReactElement {
   const [value, setValue] = useState("");
   const [slashSelected, setSlashSelected] = useState(0);
   const [focused, setFocused] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [mention, setMention] = useState<MentionState>({
     active: false,
     start: -1,
@@ -86,6 +101,11 @@ export function Composer({
   const [dragOver, setDragOver] = useState(false);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const activeModelName = useMemo(() => {
+    const m = models.find((m) => m.id === currentModel);
+    return m ? m.name : currentModel || "Select Model";
+  }, [models, currentModel]);
 
   const slashMatches = useMemo<SlashCommand[]>(() => {
     if (mention.active) return [];
@@ -421,7 +441,7 @@ export function Composer({
 
   return (
     <div
-      className={"composer" + (dragOver ? " composer--drag" : "")}
+      className={"composer-container" + (dragOver ? " composer-container--drag" : "")}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -429,142 +449,220 @@ export function Composer({
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
     >
-      {mention.active ? (
-        <div className="popup popup--mentions" role="listbox">
-          {mention.loading && mention.matches.length === 0 ? (
-            <div className="popup__empty">searching…</div>
-          ) : null}
-          {!mention.loading && mention.matches.length === 0 ? (
-            <div className="popup__empty">no matches</div>
-          ) : null}
-          {mention.matches.map((m, i) => (
-            <div
-              key={m.path}
-              className={
-                "popup__item popup__item--mention" +
-                (i === mention.selected ? " popup__item--active" : "")
-              }
-              role="option"
-              aria-selected={i === mention.selected}
-              onMouseEnter={() =>
-                setMention((s) => ({ ...s, selected: i }))
-              }
-              onMouseDown={(e) => {
-                e.preventDefault();
-                applyMention(m);
-              }}
-            >
-              <span className="popup__name">{m.name}</span>
-              <span className="popup__desc">{m.rel}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {!mention.active && slashMatches.length > 0 ? (
-        <div className="popup" role="listbox">
-          {slashMatches.map((c, i) => (
-            <div
-              key={c.name}
-              className={
-                "popup__item" +
-                (i === slashSelected ? " popup__item--active" : "")
-              }
-              role="option"
-              aria-selected={i === slashSelected}
-              onMouseEnter={() => setSlashSelected(i)}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setValue(c.name + " ");
-                setSlashSelected(0);
-                ref.current?.focus();
-              }}
-            >
-              <span className="popup__name">{c.name}</span>
-              <span className="popup__desc">{c.description}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {attachments.length > 0 ? (
-        <div className="composer__chips">
-          {attachments.map((a) => (
-            <div
-              key={a.id}
-              className={"chip chip--" + a.kind}
-              title={a.path ?? a.name}
-            >
-              {a.kind === "image" ? (
-                <img className="chip__thumb" src={a.dataUrl} alt="" />
-              ) : (
-                <span className="chip__icon">⌘</span>
-              )}
-              <span className="chip__name">{a.name}</span>
-              <button
-                className="chip__remove"
-                onClick={() => removeAttachment(a.id)}
-                aria-label="Remove"
+      <div className="composer">
+        {mention.active ? (
+          <div className="popup popup--mentions" role="listbox">
+            {mention.loading && mention.matches.length === 0 ? (
+              <div className="popup__empty">searching…</div>
+            ) : null}
+            {!mention.loading && mention.matches.length === 0 ? (
+              <div className="popup__empty">no matches</div>
+            ) : null}
+            {mention.matches.map((m, i) => (
+              <div
+                key={m.path}
+                className={
+                  "popup__item popup__item--mention" +
+                  (i === mention.selected ? " popup__item--active" : "")
+                }
+                role="option"
+                aria-selected={i === mention.selected}
+                onMouseEnter={() =>
+                  setMention((s) => ({ ...s, selected: i }))
+                }
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  applyMention(m);
+                }}
               >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+                <span className="popup__name">{m.name}</span>
+                <span className="popup__desc">{m.rel}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
-      <div
-        className={
-          "composer__box" +
-          (focused ? " composer__box--focus" : "") +
-          (disabled ? " composer__box--disabled" : "")
-        }
-      >
-        <span className="composer__caret">›</span>
-        <textarea
-          ref={ref}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          onChange={onChange}
-          onSelect={onSelect}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-          placeholder={
-            disabled
-              ? "thinking…"
-              : "Ask vibe to do something. Type @ to mention a file, / for commands."
+        {!mention.active && slashMatches.length > 0 ? (
+          <div className="popup" role="listbox">
+            {slashMatches.map((c, i) => (
+              <div
+                key={c.name}
+                className={
+                  "popup__item" +
+                  (i === slashSelected ? " popup__item--active" : "")
+                }
+                role="option"
+                aria-selected={i === slashSelected}
+                onMouseEnter={() => setSlashSelected(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setValue(c.name + " ");
+                  setSlashSelected(0);
+                  ref.current?.focus();
+                }}
+              >
+                <span className="popup__name">{c.name}</span>
+                <span className="popup__desc">{c.description}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {attachments.length > 0 ? (
+          <div className="composer__chips">
+            {attachments.map((a) => (
+              <div
+                key={a.id}
+                className={"chip chip--" + a.kind}
+                title={a.path ?? a.name}
+              >
+                {a.kind === "image" ? (
+                  <img className="chip__thumb" src={a.dataUrl} alt="" />
+                ) : (
+                  <span className="chip__icon">⌘</span>
+                )}
+                <span className="chip__name">{a.name}</span>
+                <button
+                  className="chip__remove"
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div
+          className={
+            "composer__box" +
+            (focused ? " composer__box--focus" : "") +
+            (disabled ? " composer__box--disabled" : "")
           }
-          spellCheck={false}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            if (e.target.files) handleFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          className="composer__icon"
-          disabled={disabled}
-          onClick={() => fileInputRef.current?.click()}
-          title="Attach image"
-          aria-label="Attach image"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </button>
+          <textarea
+            ref={ref}
+            rows={1}
+            value={value}
+            disabled={disabled}
+            onChange={onChange}
+            onSelect={onSelect}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            placeholder={
+              disabled
+                ? "thinking…"
+                : "Спросите что угодно..."
+            }
+            spellCheck={false}
+          />
+
+          <div className="composer__inner-toolbar">
+            <button
+              type="button"
+              className="composer__attach-btn"
+              disabled={disabled}
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="3" x2="12" y2="21"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+              </svg>
+            </button>
+
+            {disabled ? (
+              <button
+                className="composer__stop-btn"
+                onClick={onStop}
+                title="Stop"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                className="composer__send-btn"
+                disabled={!value.trim() && attachments.length === 0}
+                onClick={submit}
+                title="Send"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        <div className="composer__footer">
+          <button
+            type="button"
+            className={"composer__footer-btn" + (terminalOpen ? " composer__footer-btn--active" : "")}
+            onClick={onToggleTerminal}
+            title="Terminal"
+          >
+            <span className="composer__footer-btn-label">Terminal</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <div className="composer__model-selector">
+            <button
+              type="button"
+              className="composer__footer-btn composer__footer-btn--model"
+              onClick={() => setModelPickerOpen(!modelPickerOpen)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              </svg>
+              <span className="composer__footer-btn-label">{activeModelName}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
+            {modelPickerOpen && (
+              <div className="composer__model-dropdown">
+                {models.map((m) => (
+                  <button
+                    key={m.id}
+                    className={"composer__model-item" + (m.id === currentModel ? " composer__model-item--active" : "")}
+                    onClick={() => {
+                      onPickModel(m.id);
+                      setModelPickerOpen(false);
+                    }}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+                {models.length === 0 && <div className="composer__model-empty">No models</div>}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <div className="composer__hint">
-        Enter to send · Shift+Enter for newline · @ for files · / for commands · drop or paste images
       </div>
     </div>
   );

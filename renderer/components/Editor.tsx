@@ -6,6 +6,7 @@ import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import * as monaco from "monaco-editor";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import "../styles/Editor.css";
 
 // Wire up Monaco workers for Vite (one-time, module scope is fine)
 self.MonacoEnvironment = {

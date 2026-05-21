@@ -39,6 +39,7 @@ export class Agent {
   private config: Config;
   private tools: Tool[];
   private bus: SessionBus;
+  private abortController: AbortController | null = null;
 
   constructor(config: Config, tools: Tool[], bus: SessionBus) {
     this.config = config;
@@ -88,6 +89,10 @@ export class Agent {
     return this.messages;
   }
 
+  stop(): void {
+    this.abortController?.abort();
+  }
+
   private askConfirm(toolName: string, args: unknown): Promise<"yes" | "no" | "always"> {
     return new Promise((resolve) => {
       this.bus.requestConfirm({
@@ -127,15 +132,20 @@ export class Agent {
 
     const toolDefs = this.tools.map((t) => t.definition);
     this.bus.setBusy(true);
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
 
     try {
       for (let turn = 0; turn < MAX_TURNS; turn++) {
+        if (signal.aborted) break;
+
         this.bus.emitEvent({ kind: "assistant-start" });
         const turnResult = await streamChat(
           this.config,
           this.messages,
           toolDefs,
           (chunk) => this.bus.emitEvent({ kind: "assistant-chunk", text: chunk }),
+          signal,
         );
         this.bus.emitEvent({ kind: "assistant-end" });
 
@@ -145,9 +155,11 @@ export class Agent {
           tool_calls: turnResult.toolCalls.length ? turnResult.toolCalls : undefined,
         });
 
-        if (turnResult.toolCalls.length === 0) return;
+        if (turnResult.toolCalls.length === 0) break;
 
         for (const call of turnResult.toolCalls) {
+          if (signal.aborted) break;
+
           const tool = this.toolMap.get(call.function.name);
           let resultText: string;
 
@@ -241,13 +253,16 @@ export class Agent {
           });
         }
       }
-
-      this.bus.emitEvent({
-        kind: "error",
-        text: `reached max turns (${MAX_TURNS}); stopping.`,
-      });
+    } catch (err) {
+      const isAbort = (err as Error).name === "AbortError" || (err as Error).message === "Aborted";
+      if (isAbort) {
+        this.bus.emitEvent({ kind: "info", text: "Manually Stopped" });
+      } else {
+        this.bus.emitEvent({ kind: "error", text: (err as Error).message });
+      }
     } finally {
       this.bus.setBusy(false);
+      this.abortController = null;
     }
   }
 }

@@ -27,8 +27,8 @@ let activeChatId: string | null = null;
 
 async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width: 1300,
+    height: 820,
     resizable: true,
     backgroundColor: "#161616",
     title: "vibe",
@@ -43,10 +43,9 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      zoomFactor: 1.2,
     },
   });
-
-  mainWindow.maximize();
 
   const devUrl = process.env.VIBE_DEV_URL;
   if (devUrl) {
@@ -57,6 +56,23 @@ async function createWindow(): Promise<void> {
   } else {
     await mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
+
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.type === "keyDown" && (input.control || input.meta)) {
+      if (input.key === "=" || input.key === "+") {
+        const current = mainWindow!.webContents.getZoomFactor();
+        mainWindow!.webContents.setZoomFactor(current + 0.2);
+        event.preventDefault();
+      } else if (input.key === "-") {
+        const current = mainWindow!.webContents.getZoomFactor();
+        mainWindow!.webContents.setZoomFactor(Math.max(0.2, current - 0.2));
+        event.preventDefault();
+      } else if (input.key === "0") {
+        mainWindow!.webContents.setZoomFactor(1.2);
+        event.preventDefault();
+      }
+    }
+  });
 }
 
 function persistActiveChat(): void {
@@ -172,6 +188,10 @@ ipcMain.handle("vibe:send", async (_e, text: string) => {
 
 ipcMain.handle("vibe:reset", () => {
   agent?.reset();
+});
+
+ipcMain.handle("vibe:stop", () => {
+  agent?.stop();
 });
 
 ipcMain.handle("vibe:chats:list", () => chatStore?.list() ?? []);
