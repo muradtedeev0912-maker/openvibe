@@ -74,6 +74,7 @@ export async function streamChat(
   messages: ChatMessage[],
   tools: ToolDefinition[],
   onDelta: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<AssistantTurn> {
   const outboundMessages = supportsVision(config.model)
     ? messages
@@ -82,6 +83,8 @@ export async function streamChat(
   const MAX_RETRIES = 3;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (signal?.aborted) throw new Error("Aborted");
+
     // Google AI supports both Bearer token and ?key= param
     const isGoogleAI = config.baseUrl.includes("generativelanguage.googleapis.com");
     const url = isGoogleAI
@@ -95,6 +98,7 @@ export async function streamChat(
     const res = await fetch(url, {
       method: "POST",
       headers,
+      signal,
       body: JSON.stringify({
         model: config.model,
         messages: outboundMessages,
@@ -138,7 +142,7 @@ export async function streamChat(
       throw new Error(`LLM request failed: ${res.status} ${res.statusText}\n${text}`);
     }
 
-    return parseStream(res.body, onDelta);
+    return parseStream(res.body, onDelta, signal);
   }
 
   throw new Error("Rate limit: too many retries. Try again in a minute.");
@@ -147,6 +151,7 @@ export async function streamChat(
 async function parseStream(
   body: ReadableStream<Uint8Array>,
   onDelta: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<AssistantTurn> {
 
   let content = "";
@@ -161,6 +166,10 @@ async function parseStream(
   let buffer = "";
 
   while (true) {
+    if (signal?.aborted) {
+      reader.cancel();
+      throw new Error("Aborted");
+    }
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });

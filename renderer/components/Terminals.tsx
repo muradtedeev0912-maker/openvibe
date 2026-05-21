@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { TermPane } from "./TermPane.js";
+import "../styles/Terminals.css";
 
 interface Tab {
   id: string;

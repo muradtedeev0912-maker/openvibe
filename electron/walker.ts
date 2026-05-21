@@ -12,6 +12,12 @@ const SKIP = new Set([
   ".turbo",
   "coverage",
   ".vite",
+  ".env",
+  ".env.test",
+  ".env.development",
+  ".env.production",
+  "target",
+  
 ]);
 
 const MAX_FILES = 8000;

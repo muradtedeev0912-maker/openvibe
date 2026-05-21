@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { Project } from "../types.js";
 import { ContextMenu, type MenuItem } from "./ContextMenu.js";
 import { SidebarToggleIcon } from "./icons.js";
+import "../styles/ChatRail.css";
 
 interface Props {
   projects: Project[];

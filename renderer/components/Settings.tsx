@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import "../styles/Settings.css";
 
 interface Provider {
   id: string;

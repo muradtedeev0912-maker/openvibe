@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChatRecord,
   ChatSummary,
@@ -8,7 +8,6 @@ import type {
   VibeConfig,
   VibeEvent,
 } from "../types.js";
-import { Banner } from "./Banner.js";
 import { ChatRail } from "./ChatRail.js";
 import { ChatSidebar } from "./ChatSidebar.js";
 import { Composer, type SendPayload } from "./Composer.js";
@@ -19,9 +18,10 @@ import { History, type HistoryItem } from "./History.js";
 import { Settings } from "./Settings.js";
 import { Terminals } from "./Terminals.js";
 import { Titlebar } from "./Titlebar.js";
+import "../styles/App.css";
 
 type FatalState = { kind: "ok" } | { kind: "fatal"; error: string };
-type Tab = "chat" | "terminal" | "editor";
+type Tab = "chat" | "editor";
 
 let nextLocalId = 0;
 const localId = (): string => `l${++nextLocalId}`;
@@ -99,11 +99,30 @@ export function App(): React.ReactElement {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [chatSideOpen, setChatSideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const streamingId = useRef<string | null>(null);
   const [streamingNow, setStreamingNow] = useState<string | null>(null);
   const pendingAttachments = useRef<HistoryItem["attachments"]>(undefined);
+
+  const connectedModels = useMemo(() => {
+    try {
+      const saved = localStorage.getItem("vibe_providers");
+      if (saved) {
+        const list = JSON.parse(saved) as Array<{
+          id: string;
+          name: string;
+          model: string;
+          connected: boolean;
+        }>;
+        return list
+          .filter((p) => p.connected && p.model)
+          .map((p) => ({ id: p.model, name: `${p.name} — ${p.model}` }));
+      }
+    } catch { /* ignore */ }
+    return [];
+  }, [config?.model, settingsOpen]); // Refresh when config model changes or settings close
 
   // Init agent on mount
   useEffect(() => {
@@ -229,9 +248,21 @@ export function App(): React.ReactElement {
             return prev.map((it) =>
               it.id === e.id ? { ...it, text: "denied", ok: false } : it,
             );
-          case "info":
-            return [...prev, { id: localId(), kind: "info", text: e.text }];
+          case "info": {
+            if (e.text === "Manually Stopped") {
+              setBusy(false);
+              setStreamingNow(null);
+              streamingId.current = null;
+            }
+            return [
+              ...prev,
+              { id: localId(), kind: "info", text: e.text },
+            ];
+          }
           case "error":
+            setBusy(false);
+            setStreamingNow(null);
+            streamingId.current = null;
             return [...prev, { id: localId(), kind: "error", text: e.text }];
         }
       });
@@ -407,6 +438,10 @@ export function App(): React.ReactElement {
     },
     [handleSlash],
   );
+
+  const onStop = useCallback(() => {
+    window.vibe.stop();
+  }, []);
 
   const handleDecide = useCallback(
     (decision: "yes" | "no" | "always") => {
@@ -679,32 +714,18 @@ export function App(): React.ReactElement {
           onClose={() => setChatSideOpen(false)}
         />
         <div className="app__content">
-          <Banner config={{ ...config, cwd: folder ?? config.cwd }} />
           <div className="layout">
             <div className="layout__main">
-              <div className="tabs">
-                <button
-                  className={
-                    "tabs__btn" + (tab === "chat" ? " tabs__btn--active" : "")
-                  }
-                  onClick={() => setTab("chat")}
-                >
-                  chat
-                </button>
-                <button
-                  className={
-                    "tabs__btn" + (tab === "terminal" ? " tabs__btn--active" : "")
-                  }
-                  onClick={() => setTab("terminal")}
-                >
-                  terminal
-                </button>
-                {editorPath ? (
+              {editorPath && (
+                <div className="tabs">
                   <button
-                    className={
-                      "tabs__btn tabs__btn--editor" +
-                      (tab === "editor" ? " tabs__btn--active" : "")
-                    }
+                    className={"tabs__btn" + (tab === "chat" ? " tabs__btn--active" : "")}
+                    onClick={() => setTab("chat")}
+                  >
+                    chat
+                  </button>
+                  <button
+                    className={"tabs__btn tabs__btn--editor" + (tab === "editor" ? " tabs__btn--active" : "")}
                     onClick={() => setTab("editor")}
                     title={editorPath}
                   >
@@ -720,8 +741,8 @@ export function App(): React.ReactElement {
                       ×
                     </span>
                   </button>
-                ) : null}
-              </div>
+                </div>
+              )}
 
               <div
                 className="view"
@@ -730,6 +751,7 @@ export function App(): React.ReactElement {
                 <History
                   items={items}
                   streamingId={streamingNow}
+                  busy={busy && !pending}
                   onPickModel={(id) => {
                     window.vibe.setModel(id);
                     if (config) setConfig({ ...config, model: id });
@@ -740,20 +762,38 @@ export function App(): React.ReactElement {
                       ),
                     );
                   }}
+                  onRegenerate={(id) => {
+                    if (busy) return;
+                    // Find the last user message before this assistant message
+                    const idx = items.findIndex((it) => it.id === id);
+                    if (idx < 0) return;
+                    let userIdx = -1;
+                    for (let i = idx - 1; i >= 0; i--) {
+                      if (items[i]!.kind === "user") {
+                        userIdx = i;
+                        break;
+                      }
+                    }
+                    if (userIdx < 0) return;
+                    const userMsg = items[userIdx]!;
+
+                    // OPTIONAL: actually truncate the agent's history if possible.
+                    // For now we just remove from local UI and resend.
+                    setItems((p) => p.slice(0, userIdx));
+                    handleSubmit({
+                      parts: [{ type: "text", text: userMsg.text }],
+                      display: userMsg.text,
+                      attachments: userMsg.attachments ? userMsg.attachments.map(a => ({
+                        id: a.id,
+                        kind: a.kind,
+                        name: a.name,
+                        path: a.path,
+                        dataUrl: a.dataUrl
+                      })) : []
+                    });
+                  }}
                 />
-                {busy && !pending ? (
-                  <div className="loader">
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                    <span className="loader__dot" />
-                  </div>
-                ) : null}
+
                 {pending ? (
                   <Confirm payload={pending} onDecide={handleDecide} />
                 ) : (
@@ -761,15 +801,21 @@ export function App(): React.ReactElement {
                     disabled={busy}
                     workspace={folder ?? config.cwd}
                     onSubmit={handleSubmit}
+                    onStop={onStop}
+                    terminalOpen={terminalOpen}
+                    onToggleTerminal={() => setTerminalOpen(!terminalOpen)}
+                    models={connectedModels}
+                    currentModel={config.model ?? ""}
+                    onPickModel={(id) => {
+                      window.vibe.setModel(id);
+                      setConfig({ ...config, model: id });
+                    }}
                   />
                 )}
-              </div>
 
-              <div
-                className="view"
-                style={{ display: tab === "terminal" ? "flex" : "none" }}
-              >
-                <Terminals active={tab === "terminal"} />
+                <div className="terminal-embedded" style={{ display: terminalOpen ? "flex" : "none" }}>
+                  <Terminals active={terminalOpen} />
+                </div>
               </div>
 
               {editorPath ? (
@@ -785,7 +831,6 @@ export function App(): React.ReactElement {
             <aside className="sidebar">
               <FileTree
                 cwd={folder ?? config.cwd}
-                onPickFolder={handlePickFolder}
                 onOpenFile={handleOpenFile}
                 activeFile={editorPath}
               />

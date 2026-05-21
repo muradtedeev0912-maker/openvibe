@@ -7,6 +7,7 @@ const api = {
   sendParts: (parts, display) =>
     ipcRenderer.invoke("vibe:sendParts", parts, display),
   reset: () => ipcRenderer.invoke("vibe:reset"),
+  stop: () => ipcRenderer.invoke("vibe:stop"),
   decide: (id, decision) => ipcRenderer.invoke("vibe:decide", id, decision),
   pickWorkspace: () => ipcRenderer.invoke("vibe:pickWorkspace"),
 

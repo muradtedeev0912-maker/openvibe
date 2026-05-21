@@ -1,0 +1,300 @@
+/* ===== Composer / prompt ===== */
+.composer-container {
+  position: relative;
+  margin-top: auto;
+}
+.composer {
+  display: flex;
+  flex-direction: column;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.composer__box {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #222;
+  transition: background 0.12s ease;
+}
+.composer__box--focus {
+  background: #1d1d1d;
+}
+.composer__box--disabled {
+  opacity: 0.55;
+}
+.composer textarea {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  min-height: 24px;
+  max-height: 200px;
+  margin-bottom: 6px;
+  padding: 0;
+  line-height: 1.5;
+}
+.composer textarea::placeholder {
+  color: #666;
+}
+
+.composer__inner-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.composer__attach-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.12s ease;
+  margin-left: -4px;
+}
+.composer__attach-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.composer__attach-btn:hover {
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.composer__send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #333;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  margin-right: -4px;
+}
+.composer__send-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.composer__send-btn:not(:disabled) {
+  background: #fff;
+  color: #000;
+}
+.composer__send-btn:not(:disabled):hover {
+  background: #eee;
+  color: #000;
+}
+.composer__send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.composer__stop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  margin-right: -4px;
+}
+.composer__stop-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.composer__stop-btn:hover {
+  background: #eee;
+}
+
+.composer__footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #111;
+}
+
+.composer__footer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #888;
+  font-size: 12px;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.composer__footer-btn:hover {
+  color: #fff;
+}
+.composer__footer-btn--active {
+  color: var(--accent);
+}
+.composer__footer-btn svg {
+  flex-shrink: 0;
+}
+
+.composer__model-selector {
+  position: relative;
+}
+.composer__model-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 200px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+.composer__model-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-dim);
+  font-size: 12px;
+  cursor: pointer;
+}
+.composer__model-item:hover {
+  background: var(--bg-3);
+  color: var(--fg);
+}
+.composer__model-item--active {
+  color: var(--accent);
+  background: var(--bg-3);
+}
+
+.composer__hint {
+  color: var(--fg-muted);
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ===== Composer attachments ===== */
+.composer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-2);
+  font-size: 11px;
+  color: var(--fg-dim);
+  max-width: 220px;
+}
+.chip--image {
+  padding-left: 4px;
+}
+.chip__thumb {
+  width: 22px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+.chip__icon {
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+.chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.chip__remove {
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 13px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 2px;
+}
+.chip__remove:hover {
+  background: var(--line);
+  color: var(--fg);
+}
+
+/* Drag-over visual on composer */
+.composer--drag .composer__box {
+  border-color: var(--accent);
+  background: rgba(192, 132, 252, 0.06);
+}
+
+/* ===== Composer icon buttons (attach, mic) ===== */
+.composer__icon {
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  align-self: flex-start;
+  margin-top: 2px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.composer__icon:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--bg-2);
+}
+.composer__icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Recording indicator ===== */
+.composer__icon--active {
+  color: var(--red);
+  animation: mic-pulse 1s infinite ease-in-out;
+}
+@keyframes mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

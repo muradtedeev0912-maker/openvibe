@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatSummary } from "../types.js";
+import "../styles/ChatSidebar.css";
 
 interface Props {
   open: boolean;

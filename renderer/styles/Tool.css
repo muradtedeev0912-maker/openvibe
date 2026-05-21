@@ -1,0 +1,45 @@
+.tool {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--fg-dim);
+}
+.tool__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.tool--ok .tool__icon { color: var(--green); }
+.tool--err .tool__icon { color: var(--red); }
+.tool--pending .tool__icon { color: var(--fg-muted); }
+.tool__line {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tool__verb {
+  color: var(--fg);
+}
+.tool__suffix {
+  color: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.tool__spinner {
+  animation: tool-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+@keyframes tool-spin {
+  to { transform: rotate(360deg); }
+}

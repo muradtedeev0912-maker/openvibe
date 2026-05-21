@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import type { ConfirmPayload } from "../types.js";
+import "../styles/Confirm.css";
 
 interface Props {
   payload: ConfirmPayload;

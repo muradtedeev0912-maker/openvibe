@@ -1,4 +1,5 @@
 import React from "react";
+import "../styles/Titlebar.css";
 
 export function Titlebar(): React.ReactElement {
   return (
