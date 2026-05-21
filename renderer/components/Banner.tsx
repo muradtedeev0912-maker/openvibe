@@ -67,8 +67,14 @@ export function Banner({ config }: { config: VibeConfig }): React.ReactElement {
   const [collapsed, setCollapsed] = React.useState(false);
 
   return (
-    <div className="banner-wrap">
-      <div className={"banner" + (collapsed ? " banner--collapsed" : "")}>
+    <div className={"banner-wrap" + (collapsed ? " banner-wrap--collapsed" : "")}>
+      {collapsed ? (
+        <div className="banner__handle" onClick={() => setCollapsed(false)} title="Show banner" />
+      ) : null}
+      <div
+        className={"banner" + (collapsed ? " banner--collapsed" : "")}
+        onDoubleClick={() => setCollapsed(true)}
+      >
         <div className="banner__left">
           <div className="banner__title">
             <span className="banner__title-name">vibe</span>
@@ -108,16 +114,6 @@ export function Banner({ config }: { config: VibeConfig }): React.ReactElement {
         <div className="banner__activity">No recent activity</div>
       </div>
     </div>
-      <button
-        className={"banner__toggle" + (collapsed ? " banner__toggle--up" : "")}
-        onClick={() => setCollapsed(!collapsed)}
-        title={collapsed ? "Show banner" : "Hide banner"}
-        aria-label="Toggle banner"
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M2 8L6 4L10 8" />
-        </svg>
-      </button>
     </div>
   );
 }
