@@ -70,6 +70,11 @@
       "target": "nsis",
       "icon": "assets/icon.png"
     },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon.png",
