@@ -87,6 +87,7 @@ export interface VibeApi {
     display?: string,
   ) => Promise<{ ok: boolean; error?: string }>;
   reset: () => Promise<void>;
+  abort: () => Promise<void>;
   decide: (id: string, decision: "yes" | "no" | "always") => Promise<void>;
   pickWorkspace: () => Promise<string | null>;
   window: {
@@ -112,6 +113,23 @@ export interface VibeApi {
     rename: (id: string, name: string) => Promise<void>;
     close: () => Promise<void>;
   };
+  mcp: {
+    list: () => Promise<Array<{ id: string; name: string; connected: boolean; toolCount: number }>>;
+    configs: () => Promise<Array<{ id: string; name: string; command: string; args: string[]; env?: Record<string, string>; enabled: boolean }>>;
+    add: (server: { name: string; command: string; args: string[]; env?: Record<string, string> }) => Promise<{ ok: boolean; server?: unknown; error?: string }>;
+    remove: (id: string) => Promise<{ ok: boolean }>;
+    connect: (id: string) => Promise<{ ok: boolean; error?: string; toolCount?: number }>;
+    disconnect: (id: string) => Promise<{ ok: boolean }>;
+  };
+  snapshot: {
+    create: () => Promise<{ ok: boolean; name?: string; path?: string; date?: string; error?: string }>;
+    list: () => Promise<Array<{ name: string; path: string; size: number; date: string }>>;
+    reveal: (path: string) => Promise<void>;
+  };
+  templates: {
+    list: () => Promise<Array<{ id: string; name: string; description: string; icon: string }>>;
+    use: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  };
   fs: {
     list: (dir: string) => Promise<
       | { ok: true; entries: FsEntry[] }
@@ -125,6 +143,9 @@ export interface VibeApi {
       { ok: true } | { ok: false; error: string }
     >;
     rename: (from: string, to: string) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >;
+    copy: (from: string, to: string) => Promise<
       { ok: true } | { ok: false; error: string }
     >;
     delete: (path: string) => Promise<

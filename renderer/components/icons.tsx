@@ -4,48 +4,27 @@ const STROKE = "#888888";
 const FILL = "#222222";
 const ACCENT = "#c084fc";
 
-export function FolderIcon({ open }: { open: boolean }): React.ReactElement {
-  if (open) {
+export function FolderIcon({ open, name }: { open: boolean; name?: string }): React.ReactElement {
+  const icon = name ? getFolderIcon(name, open) : null;
+  if (icon) {
     return (
-      <svg
-        className="ftree__svg"
-        width="14"
-        height="14"
-        viewBox="0 0 16 16"
-        fill="none"
+      <img
+        className="ftree__img"
+        src={`./floder/${icon}`}
+        alt=""
         aria-hidden="true"
-      >
-        <path
-          d="M1.5 4.5h4l1.5 1.5h7.5v7a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-8.5z"
-          fill={FILL}
-          stroke={STROKE}
-          strokeLinejoin="round"
-        />
-        <path
-          d="M2 14l2-6h11.5l-2 6z"
-          fill={FILL}
-          stroke={ACCENT}
-          strokeLinejoin="round"
-        />
-      </svg>
+        draggable={false}
+      />
     );
   }
   return (
-    <svg
-      className="ftree__svg"
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
+    <img
+      className="ftree__img"
+      src={open ? "./floder/folder-open.svg" : "./floder/folder.svg"}
+      alt=""
       aria-hidden="true"
-    >
-      <path
-        d="M1.5 4.5h4l1.5 1.5h7.5v7a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-8.5z"
-        fill={FILL}
-        stroke={ACCENT}
-        strokeLinejoin="round"
-      />
-    </svg>
+      draggable={false}
+    />
   );
 }
 
@@ -410,6 +389,145 @@ function getFileIcon(filename: string): string | null {
   if (dot <= 0) return null;
   const ext = filename.slice(dot + 1).toLowerCase();
   return ICON_MAP[ext] ?? null;
+}
+
+/** Folder name → icon mapping */
+const FOLDER_MAP: Record<string, string> = {
+  "src": "folder-src.svg",
+  "source": "folder-src.svg",
+  "lib": "folder-purple-code.svg",
+  "dist": "folder-orange-code.svg",
+  "build": "folder-build.svg",
+  "out": "folder-orange-code.svg",
+  "output": "folder-orange-code.svg",
+  "node_modules": "folder-node-modules.svg",
+  "public": "folder-green.svg",
+  "assets": "folder-assets.svg",
+  "static": "folder-assets.svg",
+  "images": "folder-images.svg",
+  "img": "folder-images.svg",
+  "icons": "folder-images.svg",
+  "fonts": "folder-fonts.svg",
+  "styles": "folder-blue-code.svg",
+  "css": "folder-blue-code.svg",
+  "scss": "folder-sass.svg",
+  "sass": "folder-sass.svg",
+  "components": "folder-react.svg",
+  "pages": "folder-layout.svg",
+  "views": "folder-layout.svg",
+  "layouts": "folder-layout.svg",
+  "hooks": "folder-hooks.svg",
+  "utils": "folder-utils.svg",
+  "helpers": "folder-helpers.svg",
+  "services": "folder-services.svg",
+  "api": "folder-sky-code.svg",
+  "routes": "folder-router.svg",
+  "router": "folder-router.svg",
+  "middleware": "folder-middleware.svg",
+  "middlewares": "folder-middleware.svg",
+  "models": "folder-models.svg",
+  "schemas": "folder-models.svg",
+  "types": "folder-interfaces.svg",
+  "interfaces": "folder-interfaces.svg",
+  "config": "folder-config.svg",
+  "configs": "folder-config.svg",
+  "constants": "folder-constants.svg",
+  "context": "folder-context.svg",
+  "contexts": "folder-context.svg",
+  "store": "folder-reducer.svg",
+  "stores": "folder-reducer.svg",
+  "redux": "folder-reducer.svg",
+  "state": "folder-reducer.svg",
+  "actions": "folder-actions.svg",
+  "effects": "folder-effects.svg",
+  "reducers": "folder-reducer.svg",
+  "selectors": "folder-selector.svg",
+  "facades": "folder-facade.svg",
+  "providers": "folder-providers.svg",
+  "interceptors": "folder-interceptors.svg",
+  "guards": "folder-lock.svg",
+  "pipes": "folder-pipes.svg",
+  "modules": "folder-modules.svg",
+  "shared": "folder-shared.svg",
+  "common": "folder-shared.svg",
+  "core": "folder-core.svg",
+  "app": "folder-app.svg",
+  "test": "folder-green-code.svg",
+  "tests": "folder-green-code.svg",
+  "__tests__": "folder-green-code.svg",
+  "spec": "folder-green-code.svg",
+  "specs": "folder-green-code.svg",
+  "e2e": "folder-cypress.svg",
+  "cypress": "folder-cypress.svg",
+  "scripts": "folder-orange-code.svg",
+  "tools": "folder-orange-code.svg",
+  "docs": "folder-documents.svg",
+  "documentation": "folder-documents.svg",
+  "docker": "folder-docker.svg",
+  ".docker": "folder-docker.svg",
+  "database": "folder-database.svg",
+  "db": "folder-database.svg",
+  "migrations": "folder-database.svg",
+  "seeds": "folder-database.svg",
+  "prisma": "folder-prisma.svg",
+  "drizzle": "folder-drizzle.svg",
+  "graphql": "folder-graphql.svg",
+  "i18n": "folder-i18n.svg",
+  "locales": "folder-i18n.svg",
+  "locale": "folder-i18n.svg",
+  "translations": "folder-i18n.svg",
+  "android": "folder-android.svg",
+  "ios": "folder-ios.svg",
+  ".github": "folder-github.svg",
+  ".gitlab": "folder-gitlab.svg",
+  ".vscode": "folder-vscode.svg",
+  ".idea": "folder-purple.svg",
+  "electron": "folder-blue-code.svg",
+  "renderer": "folder-pink-code.svg",
+  "server": "folder-green-code.svg",
+  "client": "folder-sky-code.svg",
+  "frontend": "folder-sky-code.svg",
+  "backend": "folder-green-code.svg",
+  "packages": "folder-purple-code.svg",
+  "apps": "folder-app.svg",
+  "vendor": "folder-gray.svg",
+  "temp": "folder-gray.svg",
+  "tmp": "folder-gray.svg",
+  "cache": "folder-gray.svg",
+  ".cache": "folder-gray.svg",
+  "logs": "folder-gray.svg",
+  "log": "folder-gray.svg",
+  "target": "folder-target.svg",
+  "release": "folder-orange.svg",
+  "debug": "folder-red-code.svg",
+  "bin": "folder-orange.svg",
+  "obj": "folder-gray.svg",
+  "firebase": "folder-firebase.svg",
+  ".firebase": "folder-firebase.svg",
+  "supabase": "folder-supabase.svg",
+  "vercel": "folder-vercel.svg",
+  ".vercel": "folder-vercel.svg",
+  "nginx": "folder-nginx.svg",
+  "aws": "folder-aws.svg",
+  "azure": "folder-azure.svg",
+  "gradle": "folder-gradle.svg",
+  "mongo": "folder-mongo.svg",
+  "redis": "folder-redis.svg",
+  "mail": "folder-mail.svg",
+  "emails": "folder-mail.svg",
+  "tauri": "folder-tauri.svg",
+  "expo": "folder-expo.svg",
+  "storybook": "folder-pink-code.svg",
+  ".storybook": "folder-pink-code.svg",
+  "landing": "folder-layout.svg",
+};
+
+function getFolderIcon(name: string, open: boolean): string | null {
+  const lower = name.toLowerCase();
+  const icon = FOLDER_MAP[lower];
+  if (!icon) return null;
+  // Use open variant if available (folder-open.svg is generic, we just use the same icon)
+  return icon;
 }
 
 export function SidebarToggleIcon(): React.ReactElement {

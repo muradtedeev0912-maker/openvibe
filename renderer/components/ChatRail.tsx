@@ -40,6 +40,7 @@ export function ChatRail({
   onSettings,
 }: Props): React.ReactElement {
   const [ctx, setCtx] = useState<Ctx | null>(null);
+  const [toast, setToast] = useState(false);
 
   function buildItems(c: Ctx): MenuItem[] {
     const isActive = c.project.id === activeId;
@@ -127,6 +128,28 @@ export function ChatRail({
       <div className="chatrail__bottom">
         <button
           className="chatrail__settings"
+          title="Team Development"
+          aria-label="Team Development"
+          style={{ marginBottom: 4 }}
+          onClick={() => { setToast(true); setTimeout(() => setToast(false), 3000); }}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </button>
+        <button
+          className="chatrail__settings"
           title="Settings"
           aria-label="Settings"
           onClick={onSettings}
@@ -155,6 +178,16 @@ export function ChatRail({
           items={buildItems(ctx)}
           onClose={() => setCtx(null)}
         />
+      ) : null}
+
+      {toast ? (
+        <div className="toast">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+          <span>Team development is coming soon</span>
+        </div>
       ) : null}
     </div>
   );

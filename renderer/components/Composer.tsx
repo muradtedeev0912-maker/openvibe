@@ -12,6 +12,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "/reset", description: "Alias for /clear" },
   { name: "/cwd", description: "Print the current working directory" },
   { name: "/model", description: "Show the active model and endpoint" },
+  { name: "/new", description: "Create project from template" },
   { name: "/exit", description: "Quit vibe" },
 ];
 
@@ -562,6 +563,19 @@ export function Composer({
             <path d="M8 3v10M3 8h10" />
           </svg>
         </button>
+        {disabled ? (
+          <button
+            type="button"
+            className="composer__icon composer__icon--stop"
+            onClick={() => window.vibe.abort()}
+            title="Stop generation"
+            aria-label="Stop"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+              <rect x="3" y="3" width="10" height="10" rx="2" />
+            </svg>
+          </button>
+        ) : null}
       </div>
       <div className="composer__hint">
         Enter to send · Shift+Enter for newline · @ for files · / for commands · drop or paste images

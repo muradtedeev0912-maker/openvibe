@@ -100,10 +100,16 @@ function basename(path: string): string {
 
 interface Props {
   path: string;
+  cwd: string;
   onClose: () => void;
+  onNavigate?: (folderPath: string) => void;
+  openTabs?: string[];
+  activeTab?: string | null;
+  onSwitchTab?: (path: string) => void;
+  onCloseTab?: (path: string) => void;
 }
 
-export function Editor({ path, onClose }: Props): React.ReactElement {
+export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, onSwitchTab, onCloseTab }: Props): React.ReactElement {
   const [content, setContent] = useState<string | null>(null);
   const [original, setOriginal] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -155,14 +161,69 @@ export function Editor({ path, onClose }: Props): React.ReactElement {
     return () => window.removeEventListener("keydown", onKey);
   }, [save]);
 
+  // Autosave after 2 seconds of inactivity
+  useEffect(() => {
+    if (!dirty || saving) return;
+    const timer = setTimeout(() => { save(); }, 2000);
+    return () => clearTimeout(timer);
+  }, [content, dirty, saving, save]);
+
+  // Build breadcrumb segments from relative path (relative to project root)
+  const sep = path.includes("\\") ? "\\" : "/";
+  const relativePath = path.startsWith(cwd) ? path.slice(cwd.length).replace(/^[\\/]/, "") : path;
+  const segments = relativePath.split(/[\\/]/).filter(Boolean);
+  const breadcrumbs: { name: string; fullPath: string }[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const fullPath = cwd + sep + segments.slice(0, i + 1).join(sep);
+    breadcrumbs.push({ name: segments[i]!, fullPath });
+  }
+
   return (
     <div className="editor">
+      {openTabs && openTabs.length > 0 ? (
+        <div className="editor__tabs">
+          {openTabs.map((tab) => (
+            <div
+              key={tab}
+              className={"editor__tab" + (tab === activeTab ? " editor__tab--active" : "")}
+              onClick={() => onSwitchTab?.(tab)}
+              title={tab}
+            >
+              <span className="editor__tab-name">{basename(tab)}</span>
+              <button
+                className="editor__tab-close"
+                onClick={(e) => { e.stopPropagation(); onCloseTab?.(tab); }}
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="editor__breadcrumb">
+        {breadcrumbs.map((seg, i) => (
+          <React.Fragment key={i}>
+            {i > 0 ? <span className="editor__breadcrumb-sep">›</span> : null}
+            <button
+              className={"editor__breadcrumb-item" + (i === breadcrumbs.length - 1 ? " editor__breadcrumb-item--active" : "")}
+              onClick={() => {
+                if (i < breadcrumbs.length - 1 && onNavigate) {
+                  onNavigate(seg.fullPath);
+                }
+              }}
+              title={seg.fullPath}
+            >
+              {seg.name}
+            </button>
+          </React.Fragment>
+        ))}
+      </div>
       <div className="editor__header">
         <span className="editor__title" title={path}>
           {basename(path)}
           {dirty ? <span className="editor__dirty"> ●</span> : null}
         </span>
-        <span className="editor__path">{path}</span>
         <div className="editor__actions">
           {savedAt && !dirty ? (
             <span className="editor__saved">saved</span>
@@ -174,9 +235,6 @@ export function Editor({ path, onClose }: Props): React.ReactElement {
             title="Save (Ctrl+S)"
           >
             {saving ? "saving…" : "save"}
-          </button>
-          <button className="editor__close" onClick={onClose} title="Close">
-            ×
           </button>
         </div>
       </div>

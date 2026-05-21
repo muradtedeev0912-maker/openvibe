@@ -1,4 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import { marked } from "marked";
 
 export interface AttachmentView {
   id: string;
@@ -118,6 +121,15 @@ function describe(item: HistoryItem): { verb: string; file: FileBadgeInfo | null
         suffix: "",
       };
     }
+    case "create_dir": {
+      const args = item.toolArgs as { path?: string } | undefined;
+      const path = args?.path ?? "";
+      return {
+        verb: "Created",
+        file: { name: basename(path) || path, ext: "", cls: "dir" },
+        suffix: "",
+      };
+    }
     case "grep": {
       const args = item.toolArgs as { pattern?: string } | undefined;
       return {
@@ -134,6 +146,14 @@ function describe(item: HistoryItem): { verb: string; file: FileBadgeInfo | null
         suffix: args?.command ?? "",
       };
     }
+    case "web_search": {
+      const args = item.toolArgs as { query?: string } | undefined;
+      return {
+        verb: "Searched web",
+        file: null,
+        suffix: args?.query ? `"${args.query}"` : "",
+      };
+    }
     default:
       return { verb: item.toolName ?? "Tool", file, suffix: "" };
   }
@@ -146,7 +166,7 @@ function FileBadge({ info }: { info: FileBadgeInfo }): React.ReactElement {
       {iconFile ? (
         <img className="fbadge__icon" src={`./img/${iconFile}`} alt="" draggable={false} />
       ) : info.cls === "dir" ? (
-        <span className="fbadge__dir">📁</span>
+        <img className="fbadge__icon" src="./floder/folder.svg" alt="" draggable={false} />
       ) : (
         <span className="fbadge__generic">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#888" strokeWidth="1.3" strokeLinejoin="round">
@@ -161,37 +181,57 @@ function FileBadge({ info }: { info: FileBadgeInfo }): React.ReactElement {
 }
 
 const ICON_MAP_HISTORY: Record<string, string> = {
-  ts: "js.png",
-  tsx: "js.png",
-  js: "js.png",
-  jsx: "js.png",
-  mjs: "js.png",
-  cjs: "js.png",
-  py: "py.png",
-  pyw: "py.png",
-  c: "c.png",
-  h: "c.png",
-  cpp: "c++.png",
-  cc: "c++.png",
-  cxx: "c++.png",
-  hpp: "c++.png",
-  cs: "c#.png",
-  css: "css.png",
-  scss: "css.png",
-  less: "css.png",
-  html: "html.png",
-  htm: "html.png",
-  php: "php.png",
-  ps1: "ps1.png",
-  psm1: "ps1.png",
-  png: "image.png",
-  jpg: "image.png",
-  jpeg: "image.png",
-  gif: "image.png",
-  webp: "image.png",
-  bmp: "image.png",
-  svg: "image.png",
-  ico: "image.png",
+  ts: "ts.svg",
+  tsx: "react-ts.svg",
+  js: "js.svg",
+  jsx: "react.svg",
+  mjs: "js.svg",
+  cjs: "js.svg",
+  py: "python.svg",
+  pyw: "python.svg",
+  c: "c.svg",
+  h: "h.svg",
+  cpp: "cplus.svg",
+  cc: "cplus.svg",
+  cxx: "cplus.svg",
+  hpp: "cplus.svg",
+  cs: "csharp.svg",
+  css: "code-blue.svg",
+  scss: "sass.svg",
+  less: "code-purple.svg",
+  html: "code-orange.svg",
+  htm: "code-orange.svg",
+  php: "php.svg",
+  ps1: "shell.svg",
+  psm1: "shell.svg",
+  json: "brackets-yellow.svg",
+  yaml: "yaml.svg",
+  yml: "yaml.svg",
+  md: "markdown.svg",
+  rs: "rust.svg",
+  go: "go.svg",
+  java: "java.svg",
+  kt: "kotlin.svg",
+  rb: "ruby.svg",
+  swift: "swift.svg",
+  dart: "dart.svg",
+  sh: "shell.svg",
+  bash: "shell.svg",
+  sql: "database.svg",
+  png: "image.svg",
+  jpg: "image.svg",
+  jpeg: "image.svg",
+  gif: "gif.svg",
+  webp: "image.svg",
+  bmp: "image.svg",
+  svg: "svg.svg",
+  ico: "image.svg",
+  toml: "gear.svg",
+  ini: "gear.svg",
+  xml: "xml.svg",
+  vue: "vue.svg",
+  svelte: "svelte.svg",
+  astro: "astro.svg",
 };
 
 function CheckIcon(): React.ReactElement {
@@ -250,8 +290,18 @@ function SpinIcon(): React.ReactElement {
   );
 }
 
-function ToolBlock({ item }: { item: HistoryItem }): React.ReactElement {
+function ToolBlock({ item, onShowTerminal, onOpenFile }: { item: HistoryItem; onShowTerminal?: () => void; onOpenFile?: (path: string) => void }): React.ReactElement {
   const { verb, file, suffix } = describe(item);
+  const [expanded, setExpanded] = React.useState(false);
+  const [reverted, setReverted] = React.useState(false);
+  const hasOutput = !!item.text;
+  const isEdit = item.toolName === "edit_file";
+  const isWrite = item.toolName === "write_file";
+  const editArgs = isEdit ? (item.toolArgs as { old_str?: string; new_str?: string; path?: string } | undefined) : null;
+  const writeArgs = isWrite ? (item.toolArgs as { path?: string; content?: string } | undefined) : null;
+  const hasDiff = isEdit && editArgs?.old_str != null && editArgs?.new_str != null;
+  const canRevert = (hasDiff || isWrite) && item.ok === true && !reverted;
+  const canExpand = hasOutput || hasDiff;
   const stateCls =
     item.ok === undefined
       ? "tool--pending"
@@ -259,39 +309,177 @@ function ToolBlock({ item }: { item: HistoryItem }): React.ReactElement {
         ? "tool--ok"
         : "tool--err";
 
+  async function handleRevert(): Promise<void> {
+    if (isEdit && editArgs?.path && editArgs.old_str != null && editArgs.new_str != null) {
+      // Read current file, replace new_str back with old_str
+      const readRes = await window.vibe.fs.read(editArgs.path);
+      if (!readRes.ok) return;
+      const content = readRes.content.replace(editArgs.new_str, editArgs.old_str);
+      const writeRes = await window.vibe.fs.write(editArgs.path, content);
+      if (writeRes.ok) setReverted(true);
+    } else if (isWrite && writeArgs?.path) {
+      // Delete the created file
+      const res = await window.vibe.fs.delete(writeArgs.path);
+      if (res.ok) setReverted(true);
+    }
+  }
+
   return (
-    <div className={`tool ${stateCls}`}>
-      <span className="tool__icon">
-        {item.ok === undefined ? (
-          <SpinIcon />
-        ) : item.ok ? (
-          <CheckIcon />
-        ) : (
-          <FailIcon />
-        )}
-      </span>
-      <span className="tool__line">
-        <span className="tool__verb">{verb}</span>
-        {file ? (
-          <>
-            {" "}
-            <FileBadge info={file} />
-          </>
+    <div className="tool-wrap">
+      <div className={`tool ${stateCls}${reverted ? " tool--reverted" : ""}`} onClick={() => canExpand && setExpanded(!expanded)} style={canExpand ? { cursor: "pointer" } : undefined}>
+        <span className="tool__icon">
+          {item.ok === undefined ? (
+            <SpinIcon />
+          ) : item.ok ? (
+            <CheckIcon />
+          ) : (
+            <FailIcon />
+          )}
+        </span>
+        <span className="tool__line">
+          <span className="tool__verb">{reverted ? `${verb} (reverted)` : verb}</span>
+          {file ? (
+            <>
+              {" "}
+              <span className="tool__file-link" onClick={(e) => {
+                e.stopPropagation();
+                const args = item.toolArgs as Record<string, unknown> | undefined;
+                const fp = (args?.path ?? args?.file) as string | undefined;
+                if (fp && onOpenFile) onOpenFile(fp);
+              }}>
+                <FileBadge info={file} />
+              </span>
+            </>
+          ) : null}
+          {suffix ? <span className="tool__suffix"> {suffix}</span> : null}
+        </span>
+        {canRevert ? (
+          <button
+            className="tool__revert"
+            onClick={(e) => { e.stopPropagation(); handleRevert(); }}
+            title="Revert changes"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+          </button>
         ) : null}
-        {suffix ? <span className="tool__suffix"> {suffix}</span> : null}
-      </span>
+        {canExpand ? (
+          <span className={"tool__chevron" + (expanded ? " tool__chevron--open" : "")}>›</span>
+        ) : null}
+      </div>
+      {expanded && hasDiff ? (
+        <DiffView oldStr={editArgs!.old_str!} newStr={editArgs!.new_str!} />
+      ) : expanded && item.text ? (
+        <pre className="tool__output">{item.text}</pre>
+      ) : null}
     </div>
   );
+}
+
+function DiffView({ oldStr, newStr }: { oldStr: string; newStr: string }): React.ReactElement {
+  const oldLines = oldStr.split("\n");
+  const newLines = newStr.split("\n");
+
+  return (
+    <div className="tool__diff">
+      {oldLines.length > 0 ? (
+        <div className="tool__diff-section">
+          {oldLines.map((line, i) => (
+            <div key={`old-${i}`} className="tool__diff-line tool__diff-line--removed">
+              <span className="tool__diff-num">{i + 1}</span>
+              <span className="tool__diff-sign">−</span>
+              <span className="tool__diff-text">{line || " "}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {newLines.length > 0 ? (
+        <div className="tool__diff-section">
+          {newLines.map((line, i) => (
+            <div key={`new-${i}`} className="tool__diff-line tool__diff-line--added">
+              <span className="tool__diff-num">{i + 1}</span>
+              <span className="tool__diff-sign">+</span>
+              <span className="tool__diff-text">{line || " "}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Renders text with LaTeX math and full Markdown formatting */
+function FormattedText({ text }: { text: string }): React.ReactElement {
+  const html = useMemo(() => {
+    let input = text;
+
+    // Protect LaTeX blocks from Markdown parser by replacing with placeholders
+    const mathBlocks: string[] = [];
+    const mathInlines: string[] = [];
+
+    // Display math: \[ ... \] or $$ ... $$
+    input = input.replace(/\\\[([\s\S]*?)\\\]/g, (_m, math) => {
+      const idx = mathBlocks.length;
+      try {
+        mathBlocks.push(`<div class="math-block">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`);
+      } catch { mathBlocks.push(`<div class="math-block">${math}</div>`); }
+      return `%%MATHBLOCK${idx}%%`;
+    });
+    input = input.replace(/\$\$([\s\S]*?)\$\$/g, (_m, math) => {
+      const idx = mathBlocks.length;
+      try {
+        mathBlocks.push(`<div class="math-block">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`);
+      } catch { mathBlocks.push(`<div class="math-block">${math}</div>`); }
+      return `%%MATHBLOCK${idx}%%`;
+    });
+
+    // Inline math: \( ... \) or $ ... $
+    input = input.replace(/\\\((.*?)\\\)/g, (_m, math) => {
+      const idx = mathInlines.length;
+      try {
+        mathInlines.push(katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
+      } catch { mathInlines.push(math); }
+      return `%%MATHINLINE${idx}%%`;
+    });
+    input = input.replace(/(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)/g, (_m, math) => {
+      const idx = mathInlines.length;
+      try {
+        mathInlines.push(katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
+      } catch { mathInlines.push(math); }
+      return `%%MATHINLINE${idx}%%`;
+    });
+
+    // Parse Markdown
+    let result = marked.parse(input, { async: false, breaks: true }) as string;
+
+    // Restore LaTeX placeholders
+    result = result.replace(/%%MATHBLOCK(\d+)%%/g, (_m, idx) => mathBlocks[Number(idx)] ?? "");
+    result = result.replace(/%%MATHINLINE(\d+)%%/g, (_m, idx) => mathInlines[Number(idx)] ?? "");
+
+    return result;
+  }, [text]);
+
+  return <div className="msg__md" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 interface Props {
   items: HistoryItem[];
   onPickModel?: (id: string) => void;
   streamingId?: string | null;
+  onShowTerminal?: () => void;
+  onOpenFile?: (path: string) => void;
 }
 
-export function History({ items, onPickModel, streamingId }: Props): React.ReactElement {
+export function History({ items, onPickModel, streamingId, onShowTerminal, onOpenFile }: Props): React.ReactElement {
   const ref = useRef<HTMLDivElement | null>(null);
+  const [copiedId, setCopiedId] = React.useState<string | null>(null);
+
+  function showCopied(id: string): void {
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  }
 
   useEffect(() => {
     const el = ref.current;
@@ -304,7 +492,7 @@ export function History({ items, onPickModel, streamingId }: Props): React.React
   return (
     <div className="history" ref={ref}>
       {items.map((item) => {
-        if (item.kind === "tool") return <ToolBlock key={item.id} item={item} />;
+        if (item.kind === "tool") return <ToolBlock key={item.id} item={item} onShowTerminal={onShowTerminal} onOpenFile={onOpenFile} />;
         if (item.kind === "model-picker" && item.models) {
           return (
             <div key={item.id} className="modelpicker">
@@ -358,12 +546,23 @@ export function History({ items, onPickModel, streamingId }: Props): React.React
           );
         }
         const cls = `msg msg--${item.kind}`;
+        if (item.kind === "assistant") {
+          return (
+            <div key={item.id} className={cls} onClick={() => {
+              navigator.clipboard.writeText(item.text);
+              showCopied(item.id);
+            }} title="Click to copy">
+              <FormattedText text={item.text} />
+              {item.id === streamingId ? (
+                <span className="msg__cursor" />
+              ) : null}
+              {copiedId === item.id ? <span className="msg__copied">copied</span> : null}
+            </div>
+          );
+        }
         return (
           <div key={item.id} className={cls}>
             {item.text}
-            {item.kind === "assistant" && item.id === streamingId ? (
-              <span className="msg__cursor" />
-            ) : null}
           </div>
         );
       })}

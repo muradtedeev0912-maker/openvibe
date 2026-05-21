@@ -94,11 +94,15 @@ export function App(): React.ReactElement {
   const [editorVisible, setEditorVisible] = useState(false);
   const [folder, setFolder] = useState<string | null>(null);
   const [editorPath, setEditorPath] = useState<string | null>(null);
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [chatSideOpen, setChatSideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [expandToPath, setExpandToPath] = useState<string | null>(null);
   const [termHeight, setTermHeight] = useState(220);
   const [editorWidth, setEditorWidth] = useState(420);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -106,6 +110,57 @@ export function App(): React.ReactElement {
   const streamingId = useRef<string | null>(null);
   const [streamingNow, setStreamingNow] = useState<string | null>(null);
   const pendingAttachments = useRef<HistoryItem["attachments"]>(undefined);
+
+  /** Save current project's UI state to localStorage */
+  function saveProjectState(projectId: string | null): void {
+    if (!projectId) return;
+    const state = {
+      openTabs,
+      editorPath,
+      editorVisible,
+      termVisible,
+      editorWidth,
+      termHeight,
+    };
+    localStorage.setItem(`vibe_project_ui_${projectId}`, JSON.stringify(state));
+  }
+
+  /** Restore a project's UI state from localStorage */
+  function restoreProjectState(projectId: string): void {
+    const raw = localStorage.getItem(`vibe_project_ui_${projectId}`);
+    if (!raw) {
+      setEditorPath(null);
+      setOpenTabs([]);
+      setEditorVisible(false);
+      setTermVisible(false);
+      setEditorWidth(420);
+      setTermHeight(220);
+      return;
+    }
+    try {
+      const state = JSON.parse(raw) as {
+        openTabs?: string[];
+        editorPath?: string | null;
+        editorVisible?: boolean;
+        termVisible?: boolean;
+        editorWidth?: number;
+        termHeight?: number;
+      };
+      setOpenTabs(state.openTabs ?? []);
+      setEditorPath(state.editorPath ?? null);
+      setEditorVisible(state.editorVisible ?? false);
+      setTermVisible(state.termVisible ?? false);
+      setEditorWidth(state.editorWidth ?? 420);
+      setTermHeight(state.termHeight ?? 220);
+    } catch {
+      setEditorPath(null);
+      setOpenTabs([]);
+      setEditorVisible(false);
+      setTermVisible(false);
+      setEditorWidth(420);
+      setTermHeight(220);
+    }
+  }
 
   // Init agent on mount
   useEffect(() => {
@@ -173,6 +228,13 @@ export function App(): React.ReactElement {
       cancelled = true;
     };
   }, []);
+
+  // Save project UI state on window close
+  useEffect(() => {
+    const onBeforeUnload = () => saveProjectState(activeProject);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  });
 
   // Subscribe to events
   useEffect(() => {
@@ -354,6 +416,34 @@ export function App(): React.ReactElement {
           ]);
           return true;
         }
+        case "/new": {
+          window.vibe.templates.list().then((templates) => {
+            setItems((p) => [
+              ...p,
+              { id: localId(), kind: "user", text },
+              {
+                id: localId(),
+                kind: "info",
+                text: "Available templates:\n" + templates.map((t) => `  ${t.icon} ${t.name} — ${t.description}`).join("\n") + "\n\nType: /new <template-name>",
+              },
+            ]);
+          });
+          const arg = text.slice(4).trim().toLowerCase();
+          if (arg) {
+            window.vibe.templates.list().then(async (templates) => {
+              const match = templates.find((t) => t.id === arg || t.name.toLowerCase().includes(arg));
+              if (match) {
+                const res = await window.vibe.templates.use(match.id);
+                if (!res.ok && res.error) {
+                  setItems((p) => [...p, { id: localId(), kind: "error", text: res.error! }]);
+                }
+              } else {
+                setItems((p) => [...p, { id: localId(), kind: "error", text: `Template not found: ${arg}` }]);
+              }
+            });
+          }
+          return true;
+        }
         default:
           setItems((p) => [
             ...p,
@@ -427,11 +517,32 @@ export function App(): React.ReactElement {
   const handleOpenFile = useCallback((path: string) => {
     setEditorPath(path);
     setEditorVisible(true);
+    setOpenTabs((tabs) => tabs.includes(path) ? tabs : [...tabs, path]);
   }, []);
 
   const handleCloseEditor = useCallback(() => {
     setEditorPath(null);
     setEditorVisible(false);
+    setOpenTabs([]);
+  }, []);
+
+  const handleCloseTab = useCallback((path: string) => {
+    setOpenTabs((tabs) => {
+      const next = tabs.filter((t) => t !== path);
+      if (editorPath === path) {
+        if (next.length > 0) {
+          setEditorPath(next[next.length - 1]!);
+        } else {
+          setEditorPath(null);
+          setEditorVisible(false);
+        }
+      }
+      return next;
+    });
+  }, [editorPath]);
+
+  const handleSwitchTab = useCallback((path: string) => {
+    setEditorPath(path);
   }, []);
 
   const handleNewChat = useCallback(async () => {
@@ -488,10 +599,21 @@ export function App(): React.ReactElement {
   const handlePickProject = useCallback(
     async (id: string) => {
       if (id === activeProject) return;
+
+      // Save current project's UI state
+      saveProjectState(activeProject);
+
       const project = await window.vibe.projects.setActive(id);
       if (!project) return;
       setActiveProject(project.id);
       setFolder(project.path);
+
+      // Restore new project's UI state
+      restoreProjectState(project.id);
+
+      // Reset expand path
+      setExpandToPath(null);
+
       // load that project's chats
       const list = await window.vibe.chats.list();
       if (list.length === 0) {
@@ -509,7 +631,7 @@ export function App(): React.ReactElement {
       setActiveChat(top.id);
       setItems(record ? recordToItems(record) : []);
     },
-    [activeProject],
+    [activeProject, openTabs, editorPath, editorVisible, termVisible, editorWidth, termHeight],
   );
 
   const handleAddProject = useCallback(async () => {
@@ -519,6 +641,13 @@ export function App(): React.ReactElement {
     setProjects(list);
     setActiveProject(project.id);
     setFolder(project.path);
+
+    // Reset editor state
+    setEditorPath(null);
+    setOpenTabs([]);
+    setEditorVisible(false);
+    setTermVisible(false);
+
     // fresh chat for new project
     const chatList = await window.vibe.chats.list();
     if (chatList.length === 0) {
@@ -544,6 +673,9 @@ export function App(): React.ReactElement {
     setChats([]);
     setItems([]);
     setEditorPath(null);
+    setOpenTabs([]);
+    setEditorVisible(false);
+    setTermVisible(false);
   }, []);
 
   const handleRemoveProject = useCallback(
@@ -623,7 +755,8 @@ export function App(): React.ReactElement {
             onSettings={() => setSettingsOpen(true)}
           />
           <div className="welcome">
-            <div className="welcome__brand">vibe</div>
+            <img className="welcome__icon" src="./icon.png" alt="OpenVibe" draggable={false} />
+            <div className="welcome__brand">OpenVibe</div>
             <div className="welcome__hint">
               No project open. Pick a folder to start a session in it.
             </div>
@@ -725,6 +858,29 @@ export function App(): React.ReactElement {
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                   </svg>
                 </button>
+                <button
+                  className={"tabs__btn"}
+                  onClick={() => setMcpOpen(true)}
+                  title="MCP Servers"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="8" rx="2"/>
+                    <rect x="2" y="14" width="20" height="8" rx="2"/>
+                    <circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="6" cy="18" r="1" fill="currentColor" stroke="none"/>
+                  </svg>
+                </button>
+                <button
+                  className={"tabs__btn"}
+                  onClick={() => setSnapshotOpen(true)}
+                  title="Project Snapshots"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </button>
               </div>
 
               <div className="main__split">
@@ -732,6 +888,8 @@ export function App(): React.ReactElement {
                   <History
                     items={items}
                     streamingId={streamingNow}
+                    onShowTerminal={() => setTermVisible(true)}
+                    onOpenFile={handleOpenFile}
                     onPickModel={(id) => {
                       window.vibe.setModel(id);
                       if (config) setConfig({ ...config, model: id });
@@ -756,6 +914,7 @@ export function App(): React.ReactElement {
                     <Confirm payload={pending} onDecide={handleDecide} />
                   ) : (
                     <Composer
+                      key={activeProject ?? "none"}
                       disabled={busy}
                       workspace={folder ?? config.cwd}
                       onSubmit={handleSubmit}
@@ -810,7 +969,19 @@ export function App(): React.ReactElement {
                   }}
                 />
                 <div className="layout__editor" style={{ width: editorWidth }}>
-                  <Editor path={editorPath} onClose={handleCloseEditor} />
+                  <Editor
+                    path={editorPath}
+                    cwd={folder ?? config.cwd}
+                    onClose={handleCloseEditor}
+                    openTabs={openTabs}
+                    activeTab={editorPath}
+                    onSwitchTab={handleSwitchTab}
+                    onCloseTab={handleCloseTab}
+                    onNavigate={(folderPath) => {
+                      setSidebarVisible(true);
+                      setExpandToPath(folderPath);
+                    }}
+                  />
                 </div>
               </>
             ) : null}
@@ -821,6 +992,8 @@ export function App(): React.ReactElement {
                 onPickFolder={handlePickFolder}
                 onOpenFile={handleOpenFile}
                 activeFile={editorPath}
+                expandToPath={expandToPath}
+                onExpandDone={() => setExpandToPath(null)}
               />
             </aside>
           </div>
@@ -833,6 +1006,210 @@ export function App(): React.ReactElement {
           if (config) setConfig({ ...config, model, baseUrl, apiKey: "***" });
         }}
       />
+      {mcpOpen ? <McpPanel onClose={() => setMcpOpen(false)} /> : null}
+      {snapshotOpen ? <SnapshotPanel onClose={() => setSnapshotOpen(false)} /> : null}
+    </div>
+  );
+}
+
+
+function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
+  const [servers, setServers] = useState<Array<{ id: string; name: string; connected: boolean; toolCount: number }>>([]);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [command, setCommand] = useState("");
+  const [args, setArgs] = useState("");
+  const [envStr, setEnvStr] = useState("");
+
+  useEffect(() => {
+    window.vibe.mcp.list().then(setServers);
+  }, []);
+
+  async function handleAdd(): Promise<void> {
+    if (!name.trim() || !command.trim()) return;
+    const env: Record<string, string> = {};
+    for (const line of envStr.split("\n")) {
+      const eq = line.indexOf("=");
+      if (eq > 0) {
+        env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+      }
+    }
+    await window.vibe.mcp.add({
+      name: name.trim(),
+      command: command.trim(),
+      args: args.trim() ? args.trim().split(" ") : [],
+      env: Object.keys(env).length > 0 ? env : undefined,
+    });
+    setName("");
+    setCommand("");
+    setArgs("");
+    setEnvStr("");
+    setAdding(false);
+    setServers(await window.vibe.mcp.list());
+  }
+
+  async function handleConnect(id: string): Promise<void> {
+    await window.vibe.mcp.connect(id);
+    setServers(await window.vibe.mcp.list());
+  }
+
+  async function handleDisconnect(id: string): Promise<void> {
+    await window.vibe.mcp.disconnect(id);
+    setServers(await window.vibe.mcp.list());
+  }
+
+  async function handleRemove(id: string): Promise<void> {
+    await window.vibe.mcp.remove(id);
+    setServers(await window.vibe.mcp.list());
+  }
+
+  return (
+    <div className="settings__overlay" onClick={onClose}>
+      <div className="settings" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <div className="settings__header">
+          <h2>MCP Servers</h2>
+          <button className="settings__close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="settings__list">
+          {servers.length === 0 && !adding ? (
+            <div style={{ color: "var(--fg-muted)", fontSize: 12, padding: "12px 0" }}>
+              No MCP servers configured. Add one to extend the agent with external tools.
+            </div>
+          ) : null}
+
+          {servers.map((s) => (
+            <div key={s.id} className="settings__row">
+              <div className="settings__row-info">
+                <div className="settings__row-name">
+                  {s.name}
+                  {s.connected ? (
+                    <span className="settings__connected">{s.toolCount} tools</span>
+                  ) : null}
+                </div>
+                <div className="settings__row-desc">
+                  {s.connected ? "Connected" : "Disconnected"}
+                </div>
+              </div>
+              <div className="settings__row-actions">
+                {s.connected ? (
+                  <button className="settings__disconnect" onClick={() => handleDisconnect(s.id)}>
+                    Disconnect
+                  </button>
+                ) : (
+                  <button className="settings__connect" onClick={() => handleConnect(s.id)}>
+                    Connect
+                  </button>
+                )}
+                <button className="settings__disconnect" onClick={() => handleRemove(s.id)}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {adding ? (
+          <div className="settings__form" style={{ marginTop: 16 }}>
+            <label className="settings__label">
+              Name
+              <input className="settings__input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Postgres" />
+            </label>
+            <label className="settings__label">
+              Command
+              <input className="settings__input" value={command} onChange={(e) => setCommand(e.target.value)} placeholder="e.g. npx or uvx" />
+            </label>
+            <label className="settings__label">
+              Arguments (space-separated)
+              <input className="settings__input" value={args} onChange={(e) => setArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-github" />
+            </label>
+            <label className="settings__label">
+              Environment variables (KEY=VALUE, one per line)
+              <textarea className="settings__input" value={envStr} onChange={(e) => setEnvStr(e.target.value)} placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx" style={{ minHeight: 50, resize: "vertical" }} />
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="settings__save" onClick={handleAdd}>Add Server</button>
+              <button className="settings__connect" onClick={() => setAdding(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ position: "absolute", bottom: 28, left: 28 }}>
+            <button className="settings__save" onClick={() => setAdding(true)}>
+              + Add MCP Server
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function SnapshotPanel({ onClose }: { onClose: () => void }): React.ReactElement {
+  const [snapshots, setSnapshots] = useState<Array<{ name: string; path: string; size: number; date: string }>>([]);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    window.vibe.snapshot.list().then(setSnapshots);
+  }, []);
+
+  async function handleCreate(): Promise<void> {
+    setCreating(true);
+    const res = await window.vibe.snapshot.create();
+    setCreating(false);
+    if (res.ok) {
+      // Immediately refresh list
+      const list = await window.vibe.snapshot.list();
+      setSnapshots(list);
+    }
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return (
+    <div className="settings__overlay" onClick={onClose}>
+      <div className="settings" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+        <div className="settings__header">
+          <h2>Project Snapshots</h2>
+          <button className="settings__close" onClick={onClose}>×</button>
+        </div>
+
+        <div style={{ color: "var(--fg-muted)", fontSize: 12, marginBottom: 12 }}>
+          Create a zip backup of your entire project. Download anytime.
+        </div>
+
+        <div className="settings__list" style={{ maxHeight: 320, overflowY: "auto" }}>
+          {snapshots.length === 0 ? (
+            <div style={{ color: "var(--fg-muted)", fontSize: 12, padding: "12px 0" }}>
+              No snapshots yet.
+            </div>
+          ) : null}
+
+          {snapshots.map((s) => (
+            <div key={s.name} className="settings__row">
+              <div className="settings__row-info">
+                <div className="settings__row-name" style={{ fontSize: 12 }}>{s.name}</div>
+                <div className="settings__row-desc">
+                  {formatSize(s.size)} · {new Date(s.date).toLocaleString()}
+                </div>
+              </div>
+              <button className="settings__connect" onClick={() => window.vibe.snapshot.reveal(s.path)}>
+                Show
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ position: "absolute", bottom: 28, left: 28 }}>
+          <button style={{ border: "1px solid var(--line)", background: "transparent", color: "var(--fg-dim)", padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer" }} onClick={handleCreate} disabled={creating}>
+            {creating ? "Creating..." : "Create Snapshot"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
