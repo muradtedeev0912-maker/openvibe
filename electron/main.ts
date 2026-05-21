@@ -1,9 +1,11 @@
 import { BrowserWindow, app, ipcMain, dialog, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readdir, stat, readFile, writeFile, rename, rm, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { readdir, stat, readFile, writeFile, rename, rm, mkdir, cp, copyFile } from "node:fs/promises";
+import { existsSync, mkdirSync } from "node:fs";
 import { Agent } from "../src/agent.js";
+import { McpManager } from "../src/mcp-manager.js";
+import { TEMPLATES } from "../src/templates.js";
 import { loadConfig } from "../src/config.js";
 import { SessionBus, type ConfirmRequest } from "../src/events.js";
 import { buildTools } from "../src/tools.js";
@@ -18,6 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 let mainWindow: BrowserWindow | null = null;
 let bus: SessionBus | null = null;
 let agent: Agent | null = null;
+let mcpManager: McpManager | null = null;
 let config: Config | null = null;
 const pendingConfirms = new Map<string, ConfirmRequest>();
 let terminals: TerminalManager | null = null;
@@ -101,6 +104,16 @@ function tryInitAgent(): { ok: true } | { ok: false; error: string } {
 
   const tools = buildTools(config);
   agent = new Agent(config, tools, bus);
+  mcpManager = new McpManager(app.getPath("userData"));
+  // Auto-connect enabled MCP servers and add their tools
+  mcpManager.autoConnect().then(() => {
+    if (agent && mcpManager) {
+      const mcpTools = mcpManager.getAllTools();
+      if (mcpTools.length > 0) {
+        agent.setCwd(config!.cwd, [...buildTools(config!), ...mcpTools]);
+      }
+    }
+  });
   terminals = new TerminalManager(initialCwd);
   chatStore = initialProjectId
     ? new ChatStore(projects.chatsDir(initialProjectId))
@@ -150,6 +163,22 @@ ipcMain.handle("vibe:init", () => {
   };
 });
 
+ipcMain.handle("vibe:templates", () => {
+  return TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description, icon: t.icon }));
+});
+
+ipcMain.handle("vibe:template:use", async (_e, templateId: string) => {
+  if (!agent) return { ok: false, error: "Agent not initialised" };
+  const template = TEMPLATES.find((t) => t.id === templateId);
+  if (!template) return { ok: false, error: "Template not found" };
+  try {
+    await agent.send(template.prompt);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+});
+
 ipcMain.handle("vibe:sendParts", async (_e, parts: ContentPart[], display?: string) => {
   if (!agent) return { ok: false, error: "Agent not initialised" };
   try {
@@ -166,8 +195,13 @@ ipcMain.handle("vibe:send", async (_e, text: string) => {
     await agent.send(text);
     return { ok: true };
   } catch (err) {
+    if ((err as Error).name === "AbortError") return { ok: true };
     return { ok: false, error: (err as Error).message };
   }
+});
+
+ipcMain.handle("vibe:abort", () => {
+  agent?.abort();
 });
 
 ipcMain.handle("vibe:reset", () => {
@@ -272,6 +306,106 @@ ipcMain.handle("vibe:projects:close", () => {
 
 ipcMain.handle("vibe:projects:rename", (_e, id: string, name: string) => {
   projects?.rename(id, name);
+});
+
+// ===== MCP Handlers =====
+ipcMain.handle("vibe:mcp:list", () => {
+  return mcpManager?.getStatus() ?? [];
+});
+
+ipcMain.handle("vibe:mcp:configs", () => {
+  return mcpManager?.getConfigs() ?? [];
+});
+
+ipcMain.handle("vibe:mcp:add", async (_e, server: { name: string; command: string; args: string[]; env?: Record<string, string> }) => {
+  if (!mcpManager) return { ok: false, error: "MCP not initialized" };
+  const config = mcpManager.addServer({ ...server, enabled: true });
+  return { ok: true, server: config };
+});
+
+ipcMain.handle("vibe:mcp:remove", (_e, id: string) => {
+  mcpManager?.removeServer(id);
+  // Rebuild agent tools without this server
+  if (agent && config && mcpManager) {
+    agent.setCwd(config.cwd, [...buildTools(config), ...mcpManager.getAllTools()]);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("vibe:mcp:connect", async (_e, id: string) => {
+  if (!mcpManager) return { ok: false, error: "MCP not initialized" };
+  const result = await mcpManager.connectServer(id);
+  // Rebuild agent tools with new MCP tools
+  if (result.ok && agent && config) {
+    agent.setCwd(config.cwd, [...buildTools(config), ...mcpManager.getAllTools()]);
+  }
+  return result;
+});
+
+ipcMain.handle("vibe:mcp:disconnect", (_e, id: string) => {
+  mcpManager?.disconnectServer(id);
+  if (agent && config && mcpManager) {
+    agent.setCwd(config.cwd, [...buildTools(config), ...mcpManager.getAllTools()]);
+  }
+  return { ok: true };
+});
+
+// ===== Snapshot Handlers =====
+ipcMain.handle("vibe:snapshot:create", async () => {
+  if (!config) return { ok: false, error: "No project open" };
+  const { spawn: spawnChild } = await import("node:child_process");
+  const snapshotsDir = join(app.getPath("userData"), "snapshots");
+  if (!existsSync(snapshotsDir)) mkdirSync(snapshotsDir, { recursive: true });
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const projectName = config.cwd.split(/[\\/]/).pop() ?? "project";
+  const zipName = `${projectName}_${timestamp}.zip`;
+  const zipPath = join(snapshotsDir, zipName);
+
+  try {
+    // Use PowerShell with exclusions - get items first, then compress
+    const ps = `
+      $src = '${config.cwd.replace(/'/g, "''")}'
+      $dst = '${zipPath.replace(/'/g, "''")}'
+      $exclude = @('node_modules', '.git', 'dist', '.next', 'out', '.cache')
+      $items = Get-ChildItem -Path $src | Where-Object { $exclude -notcontains $_.Name }
+      if ($items.Count -gt 0) {
+        $items | Compress-Archive -DestinationPath $dst -Force
+      }
+    `.trim();
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawnChild("powershell", ["-NoProfile", "-Command", ps], { stdio: "pipe" });
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`PowerShell exited with code ${code}`));
+      });
+      child.on("error", reject);
+      setTimeout(() => { child.kill(); reject(new Error("Timeout")); }, 120000);
+    });
+
+    return { ok: true, name: zipName, path: zipPath, date: new Date().toISOString() };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle("vibe:snapshot:list", async () => {
+  const snapshotsDir = join(app.getPath("userData"), "snapshots");
+  if (!existsSync(snapshotsDir)) return [];
+  const files = await readdir(snapshotsDir);
+  const zips = files.filter((f) => f.endsWith(".zip")).sort().reverse();
+  const results = [];
+  for (const name of zips) {
+    const full = join(snapshotsDir, name);
+    const s = await stat(full);
+    results.push({ name, path: full, size: s.size, date: s.mtime.toISOString() });
+  }
+  return results;
+});
+
+ipcMain.handle("vibe:snapshot:reveal", (_e, path: string) => {
+  shell.showItemInFolder(path);
 });
 
 function switchToProject(path: string, projectId: string): void {
@@ -433,6 +567,20 @@ ipcMain.handle(
 ipcMain.handle("vibe:fs:rename", async (_e, from: string, to: string) => {
   try {
     await rename(from, to);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle("vibe:fs:copy", async (_e, from: string, to: string) => {
+  try {
+    const s = await stat(from);
+    if (s.isDirectory()) {
+      await cp(from, to, { recursive: true });
+    } else {
+      await copyFile(from, to);
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: (err as Error).message };

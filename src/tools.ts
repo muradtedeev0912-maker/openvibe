@@ -266,5 +266,76 @@ export function buildTools(config: Config): Tool[] {
     },
   };
 
-  return [readFileTool, writeFileTool, editFileTool, listDirTool, bashTool, grepTool];
+  const createDirTool: Tool = {
+    requiresConfirmation: false,
+    definition: {
+      type: "function",
+      function: {
+        name: "create_dir",
+        description: "Create a directory (and parent directories if needed).",
+        parameters: {
+          type: "object",
+          properties: {
+            path: { type: "string", description: "Directory path to create, relative to cwd." },
+          },
+          required: ["path"],
+        },
+      },
+    },
+    run: async (args) => {
+      const target = resolveInsideCwd(config, String(args.path ?? ""));
+      await mkdir(target, { recursive: true });
+      return `Created directory: ${args.path}`;
+    },
+  };
+
+  const webSearchTool: Tool = {
+    requiresConfirmation: false,
+    definition: {
+      type: "function",
+      function: {
+        name: "web_search",
+        description: "Search the web using DuckDuckGo. Returns top results with titles, URLs, and snippets. Use when you need current information, documentation, or answers not in the project.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Search query" },
+            max_results: { type: "number", description: "Max results to return (default 5)" },
+          },
+          required: ["query"],
+        },
+      },
+    },
+    run: async (args) => {
+      const query = String(args.query ?? "");
+      const max = Number(args.max_results ?? 5);
+      if (!query) return "No query provided";
+      try {
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; openvibe/0.2)" },
+        });
+        const html = await res.text();
+        // Parse results from DDG HTML
+        const results: string[] = [];
+        const regex = /<a[^>]+class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>(.*?)<\/a>/gi;
+        let match;
+        while ((match = regex.exec(html)) !== null && results.length < max) {
+          const href = match[1]?.replace(/\/\/duckduckgo\.com\/l\/\?uddg=/, "").split("&")[0];
+          const title = match[2]?.replace(/<[^>]*>/g, "").trim();
+          const snippet = match[3]?.replace(/<[^>]*>/g, "").trim();
+          if (href && title) {
+            const decodedUrl = decodeURIComponent(href ?? "");
+            results.push(`${title}\n${decodedUrl}\n${snippet ?? ""}\n`);
+          }
+        }
+        if (results.length === 0) return "No results found.";
+        return results.join("\n---\n");
+      } catch (err) {
+        return `Search failed: ${(err as Error).message}`;
+      }
+    },
+  };
+
+  return [readFileTool, writeFileTool, editFileTool, listDirTool, bashTool, grepTool, createDirTool, webSearchTool];
 }

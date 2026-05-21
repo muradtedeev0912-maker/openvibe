@@ -41,6 +41,7 @@ async function walk(root: string): Promise<string[]> {
         continue;
       const full = join(dir, e.name);
       if (e.isDirectory()) {
+        out.push(full + sep); // trailing sep marks it as directory
         await go(full);
       } else if (e.isFile()) {
         out.push(full);
@@ -89,16 +90,18 @@ export async function findFiles(
   limit = 30,
 ): Promise<FileMatch[]> {
   const files = await ensureIndex(root);
-  const ranked: Array<{ s: number; path: string }> = [];
+  const ranked: Array<{ s: number; path: string; isDir: boolean }> = [];
   for (const f of files) {
-    const rel = relative(root, f);
+    const isDir = f.endsWith(sep);
+    const clean = isDir ? f.slice(0, -1) : f;
+    const rel = relative(root, clean);
     const s = score(rel, query);
-    if (s > 0) ranked.push({ s, path: f });
+    if (s > 0) ranked.push({ s, path: clean, isDir });
   }
   ranked.sort((a, b) => b.s - a.s);
   return ranked.slice(0, limit).map((r) => ({
     path: r.path,
-    rel: relative(root, r.path),
-    name: r.path.split(sep).pop() ?? r.path,
+    rel: relative(root, r.path) + (r.isDir ? sep : ""),
+    name: (r.isDir ? "📁 " : "") + (r.path.split(sep).pop() ?? r.path),
   }));
 }

@@ -8,6 +8,7 @@ export interface StreamDelta {
 export interface AssistantTurn {
   content: string;
   toolCalls: ToolCall[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
 /** Heuristic: does this model accept multimodal image_url content? */
@@ -74,6 +75,7 @@ export async function streamChat(
   messages: ChatMessage[],
   tools: ToolDefinition[],
   onDelta: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<AssistantTurn> {
   const outboundMessages = supportsVision(config.model)
     ? messages
@@ -95,12 +97,14 @@ export async function streamChat(
     const res = await fetch(url, {
       method: "POST",
       headers,
+      signal,
       body: JSON.stringify({
         model: config.model,
         messages: outboundMessages,
         tools: tools.length ? tools : undefined,
         tool_choice: tools.length ? "auto" : undefined,
         stream: true,
+        stream_options: { include_usage: true },
       }),
     });
 
@@ -150,6 +154,7 @@ async function parseStream(
 ): Promise<AssistantTurn> {
 
   let content = "";
+  let usage: AssistantTurn["usage"] = undefined;
   // Accumulate tool call fragments by index, since providers stream them piecewise.
   const toolAcc = new Map<
     number,
@@ -180,6 +185,12 @@ async function parseStream(
       } catch {
         continue;
       }
+
+      // Capture usage if present
+      if (event.usage) {
+        usage = event.usage;
+      }
+
       const delta = event.choices?.[0]?.delta;
       if (!delta) continue;
 
@@ -209,5 +220,5 @@ async function parseStream(
       function: { name: v.name, arguments: v.arguments },
     }));
 
-  return { content, toolCalls };
+  return { content, toolCalls, usage };
 }

@@ -6,6 +6,7 @@ const api = {
   send: (text) => ipcRenderer.invoke("vibe:send", text),
   sendParts: (parts, display) =>
     ipcRenderer.invoke("vibe:sendParts", parts, display),
+  abort: () => ipcRenderer.invoke("vibe:abort"),
   reset: () => ipcRenderer.invoke("vibe:reset"),
   decide: (id, decision) => ipcRenderer.invoke("vibe:decide", id, decision),
   pickWorkspace: () => ipcRenderer.invoke("vibe:pickWorkspace"),
@@ -38,12 +39,33 @@ const api = {
     close: () => ipcRenderer.invoke("vibe:projects:close"),
   },
 
+  mcp: {
+    list: () => ipcRenderer.invoke("vibe:mcp:list"),
+    configs: () => ipcRenderer.invoke("vibe:mcp:configs"),
+    add: (server) => ipcRenderer.invoke("vibe:mcp:add", server),
+    remove: (id) => ipcRenderer.invoke("vibe:mcp:remove", id),
+    connect: (id) => ipcRenderer.invoke("vibe:mcp:connect", id),
+    disconnect: (id) => ipcRenderer.invoke("vibe:mcp:disconnect", id),
+  },
+
+  snapshot: {
+    create: () => ipcRenderer.invoke("vibe:snapshot:create"),
+    list: () => ipcRenderer.invoke("vibe:snapshot:list"),
+    reveal: (path) => ipcRenderer.invoke("vibe:snapshot:reveal", path),
+  },
+
+  templates: {
+    list: () => ipcRenderer.invoke("vibe:templates"),
+    use: (id) => ipcRenderer.invoke("vibe:template:use", id),
+  },
+
   fs: {
     list: (dir) => ipcRenderer.invoke("vibe:fs:list", dir),
     reveal: (path) => ipcRenderer.invoke("vibe:fs:reveal", path),
     read: (path) => ipcRenderer.invoke("vibe:fs:read", path),
     write: (path, content) => ipcRenderer.invoke("vibe:fs:write", path, content),
     rename: (from, to) => ipcRenderer.invoke("vibe:fs:rename", from, to),
+    copy: (from, to) => ipcRenderer.invoke("vibe:fs:copy", from, to),
     delete: (path) => ipcRenderer.invoke("vibe:fs:delete", path),
     createFile: (dir, name) =>
       ipcRenderer.invoke("vibe:fs:createFile", dir, name),
