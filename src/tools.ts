@@ -5,6 +5,7 @@ import {
   readdir,
   stat,
   mkdir,
+  access,
 } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import type { Config, Tool } from "./types.js";
@@ -77,9 +78,14 @@ export function buildTools(config: Config): Tool[] {
       const p = String(args.path ?? "");
       const content = String(args.content ?? "");
       const abs = resolveInsideCwd(config, p);
+      let previousContent: string | null = null;
+      try {
+        await access(abs);
+        previousContent = await readFile(abs, "utf8");
+      } catch { /* file doesn't exist yet */ }
       await mkdir(dirname(abs), { recursive: true });
       await writeFile(abs, content, "utf8");
-      return `Wrote ${content.length} chars to ${p}`;
+      return JSON.stringify({ msg: `Wrote ${content.length} chars to ${p}`, previousContent });
     },
   };
 

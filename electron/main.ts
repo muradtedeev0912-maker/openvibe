@@ -17,6 +17,10 @@ import { findFiles } from "./walker.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Fix GPU cache errors on Windows when multiple instances or permission issues
+app.commandLine.appendSwitch("disk-cache-dir", join(app.getPath("userData"), "gpu-cache"));
+app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
+
 let mainWindow: BrowserWindow | null = null;
 let bus: SessionBus | null = null;
 let agent: Agent | null = null;
@@ -503,7 +507,7 @@ ipcMain.handle("vibe:fs:list", async (_e, dir: string) => {
     const entries = await readdir(dir, { withFileTypes: true });
     const result = await Promise.all(
       entries
-        .filter((e) => !e.name.startsWith(".") || e.name === ".env" || e.name === ".gitignore")
+        .filter((e) => !e.name.startsWith(".") || e.name === ".env" || e.name === ".gitignore" || e.name === ".openvibe")
         .map(async (e) => {
           const full = join(dir, e.name);
           let size: number | undefined;
@@ -742,3 +746,4 @@ app.on("window-all-closed", () => {
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
+

@@ -125,6 +125,8 @@ const api = {
     ipcRenderer.on("vibe:fs:changed", listener);
     return () => ipcRenderer.off("vibe:fs:changed", listener);
   },
+
+
 };
 
 contextBridge.exposeInMainWorld("vibe", api);
