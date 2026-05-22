@@ -8,7 +8,7 @@
 
 A free, desktop-native alternative to Cursor and Claude Code — works with any OpenAI-compatible model.
 
-[Download](https://github.com/muradtedeev0912-maker/openvibe/releases) · [Website](https://openvibe.dev) · [Updates](https://openvibe.dev/updates.html)
+[Download](https://github.com/muradtedeev0912-maker/openvibe/releases) · [Website](https://openvibe-beta.vercel.app) · [Updates](https://openvibe-beta.vercel.app/updates.html)
 
 </div>
 
