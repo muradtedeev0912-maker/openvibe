@@ -16,15 +16,12 @@ jobs:
           - os: windows-latest
             platform: win
             artifact: openvibe-windows
-            ext: "*.exe"
           - os: ubuntu-latest
             platform: linux
             artifact: openvibe-linux
-            ext: "*.AppImage"
           - os: macos-latest
             platform: mac
             artifact: openvibe-macos
-            ext: "*.dmg"
 
     runs-on: ${{ matrix.os }}
 
