@@ -1,153 +1,116 @@
-<p align="center">
-  <img src="assets/icon.png" width="80" alt="openvibe" />
-</p>
+<div align="center">
 
-<h1 align="center">openvibe</h1>
+![openvibe](assets/preview.png)
 
-<p align="center">
-  Open-source agentic coding environment. Bring your own AI model.
-</p>
+# openvibe
 
-<p align="center">
-  <a href="https://openvibe-beta.vercel.app">Website</a> · <a href="https://github.com/muradtedeev0912-maker/openvibe/releases">Download</a> · <a href="https://openvibe-beta.vercel.app/updates.html">Changelog</a>
-</p>
+**Open-source agentic coding IDE. Bring your own AI model.**
 
----
+A free, desktop-native alternative to Cursor and Claude Code — works with any OpenAI-compatible model.
 
-## About
+[Download](https://github.com/muradtedeev0912-maker/openvibe/releases) · [Website](https://openvibe.dev) · [Updates](https://openvibe.dev/updates.html)
 
-openvibe is a desktop IDE with a built-in AI agent. It combines a code editor, terminal, file manager, and AI assistant in one window. Connect any model — no vendor lock-in, no subscriptions, no telemetry.
+</div>
 
 ---
 
-## Install
+## Quick Start
 
 ```bash
 git clone https://github.com/muradtedeev0912-maker/openvibe.git
 cd openvibe
-npm install
+npm install && npm run build && npm start
 ```
 
----
+Then open Settings (⚙) and connect your AI provider — OpenAI, Anthropic, Groq, DeepSeek, Gemini, Ollama, or any OpenAI-compatible endpoint.
 
-## Run
+## Features
+
+- 🤖 **Agentic AI** — reads, writes, edits files and runs commands autonomously
+- 🔌 **Any model** — OpenAI, Claude, Gemini, Groq, DeepSeek, Ollama, OpenRouter, custom endpoints
+- 🧩 **MCP Support** — connect external tools via Model Context Protocol (GitHub, databases, browsers)
+- ⚡ **Monaco editor** — VS Code engine with file tabs, breadcrumbs, autosave, 230+ file icons
+- 💻 **Integrated terminal** — real PowerShell/bash PTY with multiple tabs
+- 📂 **Multi-project** — unlimited projects with isolated sessions
+- 🔍 **Web search** — AI can search the internet for docs and current info
+- 🎨 **Project templates** — scaffold React, Next.js, Express, Flask, Electron, Telegram Bot, Vue 3
+- 📦 **Project snapshots** — one-click zip backup
+- 📝 **Markdown + LaTeX** — full markdown rendering with KaTeX math
+- 🎯 **`.vibe/` rules** — project-specific AI instructions in `.vibe/*.md` files
+- 🔊 **Sound feedback** — audio notifications for AI actions
+- 🎨 **Real-time editor** — see AI changes live as it codes
+- 🆓 **Free & open source** — MIT license, no telemetry, no accounts
+
+## Comparison
+
+| Feature | openvibe | Cursor | Claude Code |
+|---------|----------|--------|-------------|
+| **Open source** | ✅ MIT | ❌ | ❌ |
+| **Free** | ✅ | $20/mo | $20/mo |
+| **Bring your own model** | ✅ Any | ⚠️ Limited | ❌ Claude only |
+| **Local models (Ollama)** | ✅ | ⚠️ | ❌ |
+| **MCP support** | ✅ | ✅ | ✅ |
+| **Desktop app** | ✅ | ✅ | ❌ CLI only |
+| **Integrated terminal** | ✅ | ✅ | ✅ |
+| **Monaco editor** | ✅ | ✅ | ❌ |
+| **Project templates** | ✅ | ❌ | ❌ |
+| **Snapshots** | ✅ | ❌ | ❌ |
+| **No vendor lock-in** | ✅ | ❌ | ❌ |
+| **Telemetry** | ❌ None | ⚠️ Yes | ⚠️ Yes |
+| **Account required** | ❌ | ✅ | ✅ |
+
+## Models Supported
+
+Any OpenAI-compatible API endpoint. Tested with:
+
+- **OpenAI** — GPT-4o, GPT-4o-mini, o1
+- **Anthropic** — Claude 3.5 Sonnet (via proxy)
+- **Google** — Gemini 1.5 Pro/Flash
+- **Groq** — Llama 3.3, Mixtral, fast inference
+- **DeepSeek** — DeepSeek-V3, DeepSeek-R1
+- **Ollama** — local Llama, Qwen, Mistral
+- **LM Studio**, **vLLM**, **OpenRouter**, **GitHub Models** — all work
+
+## Project Rules (`.vibe/`)
+
+Drop a `.vibe/rules.md` in your project to teach the AI your conventions:
+
+```markdown
+# Project Rules
+
+- Use TypeScript only, no JavaScript
+- Use camelCase for variables, PascalCase for classes
+- Always use async/await, never .then()
+- Tailwind CSS for styles, no CSS-in-JS
+```
+
+The AI reads these rules at session start and follows them strictly.
+
+## Build from Source
 
 ```bash
-# Development (hot reload)
-node scripts/dev.js
-
-# Production
+npm install
 npm run build
 npm start
 ```
 
----
+For development with hot reload:
+```bash
+npm run dev
+```
 
-## Setup
+## Contributing
 
-Launch the app → click the gear icon in the sidebar → connect a provider with your API key → done.
-
-Supports: OpenAI, Anthropic, Groq, Google AI, DeepSeek, OpenRouter, Ollama, LM Studio, or any OpenAI-compatible endpoint.
-
----
-
-## Features
-
-### AI Agent
-- Reads, writes, edits files and runs commands autonomously
-- Web search — AI can look up information online
-- Style learning — adapts to your coding patterns over time
-- Auto project context — reads package.json and README on startup
-- Smart detection — distinguishes coding tasks from conversational questions
-- Stop button to abort mid-generation
-- Response time and token usage tracking
-
-### MCP (Model Context Protocol)
-- Connect external tools: GitHub, databases, browsers, and more
-- Add/remove/connect servers from the UI
-- Environment variable support for auth tokens
-- Tools auto-register with the agent
-
-### Project Templates
-- `/new` command scaffolds full projects from built-in templates
-- React+Vite, Next.js, Express, Flask, Electron, Telegram Bot, Discord Bot, Vue 3
-
-### Editor
-- Monaco (VS Code engine) with syntax highlighting
-- Multiple file tabs
-- Breadcrumb path navigation
-- Autosave (2 second debounce)
-- Resizable panel with drag divider
-
-### File Explorer
-- 230+ file icons, 100+ folder icons
-- Drag & drop between folders
-- Copy/paste files
-- Context menu: new file, new folder, rename, delete
-- Header actions: new file, new folder, refresh, collapse all
-
-### Terminal
-- Real PowerShell/bash PTY with multiple tabs
-- Works simultaneously with the editor
-- Resizable height
-
-### Chat
-- Full Markdown rendering (headers, lists, code blocks, tables)
-- LaTeX math rendering with KaTeX
-- Diff view for file edits (red/green)
-- Revert button to undo AI changes
-- Click to copy any message
-- Expandable tool output
-
-### Multi-project
-- Isolated sessions, terminal, and editor per project
-- Per-project state persistence (tabs, sizes, visibility)
-- Unlimited projects
-
-### Project Snapshots
-- One-click zip backup of the entire project
-- Excludes node_modules, .git, dist
-- List and access snapshots from any project
-
-### Other
-- App launches maximized
-- @-mentions for files and folders
-- Image paste/drop for vision models
-- `/model` to switch models on the fly
-- Toast notifications
-- Animated thinking indicator
-
----
-
-## Tech Stack
-
-Electron · React 18 · Vite · TypeScript · Monaco Editor · xterm.js · node-pty · KaTeX · marked · JetBrains Mono
-
----
-
-## Slash Commands
-
-| Command | Description |
-|---------|-------------|
-| `/help` | Show all commands |
-| `/clear` | Clear conversation |
-| `/model` | Switch AI model |
-| `/new` | Create project from template |
-| `/cwd` | Print working directory |
-| `/exit` | Quit |
-
----
+PRs welcome. Open an issue first for larger changes.
 
 ## License
 
-Code is open for use and modification. UI design is proprietary.  
-See [LICENSE](LICENSE).
+MIT — use it for anything, personal or commercial.
 
 ---
 
-<p align="center">
-  mt-studio@bk.ru · <a href="https://t.me/xmxqb">Telegram</a>
-</p>
+<div align="center">
 
+Built by [Murad](https://github.com/muradtedeev0912-maker) · 16 y.o. · Full-stack developer
 
-
+</div>
