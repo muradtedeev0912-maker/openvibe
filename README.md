@@ -1,6 +1,6 @@
 <div align="center">
 
-![openvibe](assets/preview.png)
+![openvibe](landing/canvas5.png)
 
 # openvibe
 
