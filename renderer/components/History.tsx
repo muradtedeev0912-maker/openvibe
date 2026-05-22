@@ -13,7 +13,7 @@ export interface AttachmentView {
 
 export interface HistoryItem {
   id: string;
-  kind: "user" | "assistant" | "tool" | "info" | "error" | "model-picker";
+  kind: "user" | "assistant" | "tool" | "info" | "error" | "model-picker" | "template-picker";
   text: string;
   toolName?: string;
   toolArgs?: unknown;
@@ -21,6 +21,7 @@ export interface HistoryItem {
   attachments?: AttachmentView[];
   models?: Array<{ id: string; name: string }>;
   currentModel?: string;
+  templates?: Array<{ id: string; name: string; description: string; icon: string }>;
 }
 
 function formatArgs(args: unknown): string {
@@ -290,7 +291,7 @@ function SpinIcon(): React.ReactElement {
   );
 }
 
-function ToolBlock({ item, onShowTerminal, onOpenFile }: { item: HistoryItem; onShowTerminal?: () => void; onOpenFile?: (path: string) => void }): React.ReactElement {
+function ToolBlock({ item, onShowTerminal, onOpenFile, workspace }: { item: HistoryItem; onShowTerminal?: () => void; onOpenFile?: (path: string) => void; workspace?: string }): React.ReactElement {
   const { verb, file, suffix } = describe(item);
   const [expanded, setExpanded] = React.useState(false);
   const [reverted, setReverted] = React.useState(false);
@@ -309,18 +310,31 @@ function ToolBlock({ item, onShowTerminal, onOpenFile }: { item: HistoryItem; on
         ? "tool--ok"
         : "tool--err";
 
+  function resolvePath(p: string): string {
+    const isAbsolute = /^[A-Za-z]:[\\/]/.test(p) || p.startsWith("/");
+    if (isAbsolute || !workspace) return p;
+    const sep = workspace.includes("\\") ? "\\" : "/";
+    return workspace + sep + p;
+  }
+
   async function handleRevert(): Promise<void> {
     if (isEdit && editArgs?.path && editArgs.old_str != null && editArgs.new_str != null) {
-      // Read current file, replace new_str back with old_str
-      const readRes = await window.vibe.fs.read(editArgs.path);
+      const abs = resolvePath(editArgs.path);
+      const readRes = await window.vibe.fs.read(abs);
       if (!readRes.ok) return;
       const content = readRes.content.replace(editArgs.new_str, editArgs.old_str);
-      const writeRes = await window.vibe.fs.write(editArgs.path, content);
+      const writeRes = await window.vibe.fs.write(abs, content);
       if (writeRes.ok) setReverted(true);
     } else if (isWrite && writeArgs?.path) {
-      // Delete the created file
-      const res = await window.vibe.fs.delete(writeArgs.path);
-      if (res.ok) setReverted(true);
+      const abs = resolvePath(writeArgs.path);
+      // Restore previous content from tool result
+      let previousContent: string | null = null;
+      try {
+        const parsed = JSON.parse(item.text);
+        previousContent = parsed.previousContent ?? null;
+      } catch { /* not JSON or missing field */ }
+      const writeRes = await window.vibe.fs.write(abs, previousContent ?? "");
+      if (writeRes.ok) setReverted(true);
     }
   }
 
@@ -343,6 +357,8 @@ function ToolBlock({ item, onShowTerminal, onOpenFile }: { item: HistoryItem; on
               {" "}
               <span className="tool__file-link" onClick={(e) => {
                 e.stopPropagation();
+                // Don't open directories in editor
+                if (item.toolName === "create_dir" || item.toolName === "list_dir") return;
                 const args = item.toolArgs as Record<string, unknown> | undefined;
                 const fp = (args?.path ?? args?.file) as string | undefined;
                 if (fp && onOpenFile) onOpenFile(fp);
@@ -467,12 +483,14 @@ function FormattedText({ text }: { text: string }): React.ReactElement {
 interface Props {
   items: HistoryItem[];
   onPickModel?: (id: string) => void;
+  onPickTemplate?: (id: string) => void;
   streamingId?: string | null;
   onShowTerminal?: () => void;
   onOpenFile?: (path: string) => void;
+  workspace?: string;
 }
 
-export function History({ items, onPickModel, streamingId, onShowTerminal, onOpenFile }: Props): React.ReactElement {
+export function History({ items, onPickModel, onPickTemplate, streamingId, onShowTerminal, onOpenFile, workspace }: Props): React.ReactElement {
   const ref = useRef<HTMLDivElement | null>(null);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
@@ -492,7 +510,7 @@ export function History({ items, onPickModel, streamingId, onShowTerminal, onOpe
   return (
     <div className="history" ref={ref}>
       {items.map((item) => {
-        if (item.kind === "tool") return <ToolBlock key={item.id} item={item} onShowTerminal={onShowTerminal} onOpenFile={onOpenFile} />;
+        if (item.kind === "tool") return <ToolBlock key={item.id} item={item} onShowTerminal={onShowTerminal} onOpenFile={onOpenFile} workspace={workspace} />;
         if (item.kind === "model-picker" && item.models) {
           return (
             <div key={item.id} className="modelpicker">
@@ -511,6 +529,24 @@ export function History({ items, onPickModel, streamingId, onShowTerminal, onOpe
                   <span className="modelpicker__check">✓</span>
                 </button>
               ))}
+            </div>
+          );
+        }
+        if (item.kind === "template-picker" && item.templates) {
+          return (
+            <div key={item.id} className="tplpicker">
+              <div className="tplpicker__title">Project templates:</div>
+              <div className="tplpicker__grid">
+                {item.templates.map((t) => (
+                  <button key={t.id} className="tplpicker__card" onClick={() => onPickTemplate?.(t.id)}>
+                    <img className="tplpicker__icon" src={`./img/${t.icon}`} alt="" />
+                    <div className="tplpicker__info">
+                      <span className="tplpicker__name">{t.name}</span>
+                      <span className="tplpicker__desc">{t.description}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           );
         }

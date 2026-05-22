@@ -18,6 +18,13 @@ import { History, type HistoryItem } from "./History.js";
 import { Settings } from "./Settings.js";
 import { Terminals } from "./Terminals.js";
 import { Titlebar } from "./Titlebar.js";
+import successSfx from "../succes.mp3";
+
+function playSound(src: string): void {
+  const audio = new Audio(src);
+  audio.volume = 0.5;
+  audio.play().catch(() => {});
+}
 
 type FatalState = { kind: "ok" } | { kind: "fatal"; error: string };
 
@@ -103,6 +110,7 @@ export function App(): React.ReactElement {
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [expandToPath, setExpandToPath] = useState<string | null>(null);
+  const [chatInject, setChatInject] = useState<string | null>(null);
   const [termHeight, setTermHeight] = useState(220);
   const [editorWidth, setEditorWidth] = useState(420);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -308,7 +316,18 @@ export function App(): React.ReactElement {
         window.vibe.chats.list().then(setChats);
       }
     });
-    const offBusy = window.vibe.onBusy(setBusy);
+    const offBusy = window.vibe.onBusy((b) => {
+      setBusy((prev) => {
+        if (prev && !b) {
+          if ((window as any).__vibeAborted) {
+            (window as any).__vibeAborted = false;
+          } else {
+            playSound(successSfx);
+          }
+        }
+        return b;
+      });
+    });
     const offConfirm = window.vibe.onConfirm(setPending);
     return () => {
       offEvent();
@@ -334,25 +353,10 @@ export function App(): React.ReactElement {
               kind: "info",
               text:
                 "/help    show this list\n" +
-                "/clear   clear conversation history\n" +
-                "/cwd     print current working directory\n" +
                 "/model   show active model and endpoint\n" +
+                "/new     create project from template\n" +
                 "/exit    quit",
             },
-          ]);
-          return true;
-        case "/clear":
-        case "/reset":
-          window.vibe.reset();
-          setItems([
-            { id: localId(), kind: "info", text: "conversation cleared" },
-          ]);
-          return true;
-        case "/cwd":
-          setItems((p) => [
-            ...p,
-            { id: localId(), kind: "user", text },
-            { id: localId(), kind: "info", text: folder ?? config?.cwd ?? "" },
           ]);
           return true;
         case "/model": {
@@ -417,17 +421,6 @@ export function App(): React.ReactElement {
           return true;
         }
         case "/new": {
-          window.vibe.templates.list().then((templates) => {
-            setItems((p) => [
-              ...p,
-              { id: localId(), kind: "user", text },
-              {
-                id: localId(),
-                kind: "info",
-                text: "Available templates:\n" + templates.map((t) => `  ${t.icon} ${t.name} — ${t.description}`).join("\n") + "\n\nType: /new <template-name>",
-              },
-            ]);
-          });
           const arg = text.slice(4).trim().toLowerCase();
           if (arg) {
             window.vibe.templates.list().then(async (templates) => {
@@ -440,6 +433,19 @@ export function App(): React.ReactElement {
               } else {
                 setItems((p) => [...p, { id: localId(), kind: "error", text: `Template not found: ${arg}` }]);
               }
+            });
+          } else {
+            window.vibe.templates.list().then((templates) => {
+              setItems((p) => [
+                ...p,
+                { id: localId(), kind: "user", text },
+                {
+                  id: localId(),
+                  kind: "template-picker",
+                  text: "",
+                  templates: templates.map((t) => ({ id: t.id, name: t.name, description: t.description, icon: t.icon })),
+                },
+              ]);
             });
           }
           return true;
@@ -515,10 +521,13 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleOpenFile = useCallback((path: string) => {
-    setEditorPath(path);
+    // If path is relative, resolve it against the workspace folder
+    const isAbsolute = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("/");
+    const resolved = isAbsolute ? path : ((folder ?? config?.cwd ?? "") + (path.includes("/") ? "/" : "\\") + path);
+    setEditorPath(resolved);
     setEditorVisible(true);
-    setOpenTabs((tabs) => tabs.includes(path) ? tabs : [...tabs, path]);
-  }, []);
+    setOpenTabs((tabs) => tabs.includes(resolved) ? tabs : [...tabs, resolved]);
+  }, [folder, config]);
 
   const handleCloseEditor = useCallback(() => {
     setEditorPath(null);
@@ -890,6 +899,7 @@ export function App(): React.ReactElement {
                     streamingId={streamingNow}
                     onShowTerminal={() => setTermVisible(true)}
                     onOpenFile={handleOpenFile}
+                    workspace={folder ?? config?.cwd}
                     onPickModel={(id) => {
                       window.vibe.setModel(id);
                       if (config) setConfig({ ...config, model: id });
@@ -898,6 +908,13 @@ export function App(): React.ReactElement {
                           it.kind === "model-picker" ? { ...it, currentModel: id } : it,
                         ),
                       );
+                    }}
+                    onPickTemplate={(id) => {
+                      window.vibe.templates.use(id).then((res) => {
+                        if (!res.ok && res.error) {
+                          setItems((p) => [...p, { id: localId(), kind: "error", text: res.error! }]);
+                        }
+                      });
                     }}
                   />
                   {busy && !pending ? (
@@ -918,6 +935,8 @@ export function App(): React.ReactElement {
                       disabled={busy}
                       workspace={folder ?? config.cwd}
                       onSubmit={handleSubmit}
+                      inject={chatInject}
+                      onInjected={() => setChatInject(null)}
                     />
                   )}
                 </div>
@@ -981,6 +1000,7 @@ export function App(): React.ReactElement {
                       setSidebarVisible(true);
                       setExpandToPath(folderPath);
                     }}
+                    onSendToChat={(ctx) => setChatInject(ctx)}
                   />
                 </div>
               </>

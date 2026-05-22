@@ -107,9 +107,10 @@ interface Props {
   activeTab?: string | null;
   onSwitchTab?: (path: string) => void;
   onCloseTab?: (path: string) => void;
+  onSendToChat?: (context: string) => void;
 }
 
-export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, onSwitchTab, onCloseTab }: Props): React.ReactElement {
+export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, onSwitchTab, onCloseTab, onSendToChat }: Props): React.ReactElement {
   const [content, setContent] = useState<string | null>(null);
   const [original, setOriginal] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +134,33 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
     return () => {
       cancelled = true;
     };
+  }, [path]);
+
+  // Auto-reload when AI edits the file (real-time updates)
+  useEffect(() => {
+    const off = window.vibe.onFsChanged(() => {
+      window.vibe.fs.read(path).then((res) => {
+        if (!res.ok) return;
+        // Update editor content if file changed on disk
+        const ed = editorRef.current;
+        if (ed) {
+          const model = ed.getModel();
+          const currentValue = model?.getValue() ?? "";
+          if (res.content !== currentValue) {
+            // Preserve cursor position
+            const pos = ed.getPosition();
+            model?.setValue(res.content);
+            if (pos) ed.setPosition(pos);
+            setContent(res.content);
+            setOriginal(res.content);
+          }
+        } else {
+          setContent(res.content);
+          setOriginal(res.content);
+        }
+      });
+    });
+    return off;
   }, [path]);
 
   const dirty = content !== null && content !== original;
@@ -225,6 +253,29 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
           {dirty ? <span className="editor__dirty"> ●</span> : null}
         </span>
         <div className="editor__actions">
+          {onSendToChat ? (
+            <span
+              className="editor__send-chat"
+              draggable
+              onDragStart={(e) => {
+                const ed = editorRef.current;
+                if (!ed) return;
+                const sel = ed.getSelection();
+                const fileName = basename(path);
+                let context = `@${fileName}`;
+                if (sel && !sel.isEmpty()) {
+                  context = `@${fileName}:${sel.startLineNumber}-${sel.endLineNumber}`;
+                }
+                e.dataTransfer.setData("text/plain", context);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              title="Drag to chat input (select code first for line range)"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              </svg>
+            </span>
+          ) : null}
           {savedAt && !dirty ? (
             <span className="editor__saved">saved</span>
           ) : null}

@@ -188,6 +188,7 @@ export interface VibeApi {
   onBusy: (cb: (busy: boolean) => void) => () => void;
   onConfirm: (cb: (p: ConfirmPayload) => void) => () => void;
   onFsChanged: (cb: () => void) => () => void;
+
   term: {
     start: (id: string, cols: number, rows: number) => Promise<boolean>;
     write: (id: string, data: string) => Promise<void>;

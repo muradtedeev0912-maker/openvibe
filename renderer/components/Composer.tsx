@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ContentPart, FileMatch } from "../types.js";
+import stoppedSfx from "../stoped.mp3";
 
 export interface SlashCommand {
   name: string;
@@ -37,6 +38,8 @@ interface Props {
   disabled: boolean;
   workspace: string;
   onSubmit: (payload: SendPayload | { slash: string }) => void;
+  inject?: string | null;
+  onInjected?: () => void;
 }
 
 interface MentionState {
@@ -71,6 +74,8 @@ export function Composer({
   disabled,
   workspace,
   onSubmit,
+  inject,
+  onInjected,
 }: Props): React.ReactElement {
   const [value, setValue] = useState("");
   const [slashSelected, setSlashSelected] = useState(0);
@@ -87,6 +92,15 @@ export function Composer({
   const [dragOver, setDragOver] = useState(false);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Handle inject from editor selection
+  useEffect(() => {
+    if (inject) {
+      setValue((v) => v ? v + "\n" + inject : inject);
+      onInjected?.();
+      ref.current?.focus();
+    }
+  }, [inject]);
 
   const slashMatches = useMemo<SlashCommand[]>(() => {
     if (mention.active) return [];
@@ -281,6 +295,17 @@ export function Composer({
         path: vibePath,
         name: vibeName || rel.split(/[\\/]/).pop() || rel,
       });
+      return;
+    }
+
+    // Drop from editor (text/plain with @file:lines format)
+    const plainText = dt.getData("text/plain");
+    if (plainText && plainText.startsWith("@")) {
+      setValue((prev) => {
+        const sep = prev && !prev.endsWith(" ") && !prev.endsWith("\n") ? " " : "";
+        return prev + sep + plainText + " ";
+      });
+      ref.current?.focus();
       return;
     }
 
@@ -559,15 +584,15 @@ export function Composer({
           title="Attach image"
           aria-label="Attach image"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
-            <path d="M8 3v10M3 8h10" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
           </svg>
         </button>
         {disabled ? (
           <button
             type="button"
             className="composer__icon composer__icon--stop"
-            onClick={() => window.vibe.abort()}
+            onClick={() => { (window as any).__vibeAborted = true; window.vibe.abort(); const a = new Audio(stoppedSfx); a.volume = 0.5; a.play().catch(() => {}); }}
             title="Stop generation"
             aria-label="Stop"
           >
