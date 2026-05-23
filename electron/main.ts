@@ -2,7 +2,7 @@ import { BrowserWindow, app, ipcMain, dialog, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readdir, stat, readFile, writeFile, rename, rm, mkdir, cp, copyFile } from "node:fs/promises";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Agent } from "../src/agent.js";
 import { McpManager } from "../src/mcp-manager.js";
 import { TEMPLATES } from "../src/templates.js";
@@ -12,8 +12,38 @@ import { buildTools } from "../src/tools.js";
 import type { ChatMessage, ContentPart, Config } from "../src/types.js";
 import { ChatStore, deriveTitle, type ChatSummary } from "./chats.js";
 import { ProjectStore, projectBasename } from "./projects.js";
-import { TerminalManager } from "./terminal.js";
+import { TerminalManager, type ShellKind } from "./terminal.js";
 import { findFiles } from "./walker.js";
+
+// ===== Shell preference (persisted in userData/settings.json) =====
+function settingsPath(): string {
+  return join(app.getPath("userData"), "settings.json");
+}
+
+function readShellPref(): ShellKind {
+  try {
+    const raw = readFileSync(settingsPath(), "utf8");
+    const parsed = JSON.parse(raw) as { shell?: string };
+    if (parsed.shell === "cmd" || parsed.shell === "bash" || parsed.shell === "powershell") {
+      return parsed.shell;
+    }
+  } catch {
+    // missing/invalid — fall through to default
+  }
+  return "powershell";
+}
+
+function writeShellPref(shell: ShellKind): void {
+  let current: Record<string, unknown> = {};
+  try {
+    const raw = readFileSync(settingsPath(), "utf8");
+    current = JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  current.shell = shell;
+  writeFileSync(settingsPath(), JSON.stringify(current, null, 2));
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -118,7 +148,7 @@ function tryInitAgent(): { ok: true } | { ok: false; error: string } {
       }
     }
   });
-  terminals = new TerminalManager(initialCwd);
+  terminals = new TerminalManager(initialCwd, readShellPref());
   chatStore = initialProjectId
     ? new ChatStore(projects.chatsDir(initialProjectId))
     : null;
@@ -421,7 +451,7 @@ function switchToProject(path: string, projectId: string): void {
   agent.setCwd(path, newTools);
   // Fresh terminal sessions for the new project
   terminals?.killAll();
-  terminals = new TerminalManager(path);
+  terminals = new TerminalManager(path, readShellPref());
   // Per-project chat store
   chatStore = new ChatStore(projects.chatsDir(projectId));
   activeChatId = null;
@@ -498,6 +528,18 @@ ipcMain.handle("vibe:term:kill", (_e, id: string) => {
   terminals?.kill(id);
 });
 
+ipcMain.handle("vibe:terminal:getShell", () => {
+  return terminals?.getShell() ?? readShellPref();
+});
+
+ipcMain.handle("vibe:terminal:setShell", (_e, shell: string) => {
+  if (shell !== "powershell" && shell !== "cmd" && shell !== "bash") return false;
+  writeShellPref(shell);
+  // New terminals will use the new shell; existing PTYs are unaffected.
+  terminals?.setShell(shell);
+  return true;
+});
+
 app.on("before-quit", () => {
   terminals?.killAll();
 });
@@ -551,6 +593,19 @@ ipcMain.handle("vibe:fs:read", async (_e, path: string) => {
     }
     const content = await readFile(path, "utf8");
     return { ok: true, content };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+});
+
+ipcMain.handle("vibe:fs:readBinary", async (_e, path: string) => {
+  try {
+    const s = await stat(path);
+    if (s.size > 50 * 1024 * 1024) {
+      return { ok: false, error: `File too large (${s.size} bytes)` };
+    }
+    const buf = await readFile(path);
+    return { ok: true, base64: buf.toString("base64") };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }
@@ -736,6 +791,32 @@ ipcMain.handle(
     }
   },
 );
+
+// ===== Update checker =====
+ipcMain.handle("vibe:checkUpdate", async () => {
+  try {
+    const res = await fetch("https://api.github.com/repos/muradtedeev0912-maker/openvibe/releases/latest", {
+      headers: { "Accept": "application/vnd.github+json", "User-Agent": "openvibe" },
+    });
+    if (!res.ok) return { ok: false };
+    const data = (await res.json()) as { tag_name?: string; html_url?: string; name?: string; body?: string };
+    const tag = data.tag_name ?? "";
+    return {
+      ok: true,
+      latestVersion: tag.replace(/^v/, ""),
+      url: data.html_url ?? "",
+      name: data.name ?? tag,
+      body: data.body ?? "",
+      currentVersion: app.getVersion(),
+    };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle("vibe:openExternal", (_e, url: string) => {
+  shell.openExternal(url);
+});
 
 app.whenReady().then(createWindow);
 

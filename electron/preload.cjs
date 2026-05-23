@@ -1,5 +1,5 @@
 // CommonJS preload — Electron requires CJS for preload regardless of project type.
-const { contextBridge, ipcRenderer, clipboard } = require("electron");
+const { contextBridge, ipcRenderer, clipboard, webUtils } = require("electron");
 
 const api = {
   init: () => ipcRenderer.invoke("vibe:init"),
@@ -63,6 +63,7 @@ const api = {
     list: (dir) => ipcRenderer.invoke("vibe:fs:list", dir),
     reveal: (path) => ipcRenderer.invoke("vibe:fs:reveal", path),
     read: (path) => ipcRenderer.invoke("vibe:fs:read", path),
+    readBinary: (path) => ipcRenderer.invoke("vibe:fs:readBinary", path),
     write: (path, content) => ipcRenderer.invoke("vibe:fs:write", path, content),
     rename: (from, to) => ipcRenderer.invoke("vibe:fs:rename", from, to),
     copy: (from, to) => ipcRenderer.invoke("vibe:fs:copy", from, to),
@@ -79,6 +80,13 @@ const api = {
   clipboard: {
     writeText: (text) => clipboard.writeText(text),
   },
+
+  getPathForFile: (file) => {
+    try { return webUtils.getPathForFile(file); } catch { return null; }
+  },
+
+  checkUpdate: () => ipcRenderer.invoke("vibe:checkUpdate"),
+  openExternal: (url) => ipcRenderer.invoke("vibe:openExternal", url),
 
   whisper: {
     transcribe: (audioBase64, mimeType) =>
@@ -102,6 +110,11 @@ const api = {
       ipcRenderer.on("vibe:term:exit", listener);
       return () => ipcRenderer.off("vibe:term:exit", listener);
     },
+  },
+
+  terminal: {
+    setShell: (shell) => ipcRenderer.invoke("vibe:terminal:setShell", shell),
+    getShell: () => ipcRenderer.invoke("vibe:terminal:getShell"),
   },
 
   onEvent: (cb) => {
