@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { Project } from "../types.js";
 import { ContextMenu, type MenuItem } from "./ContextMenu.js";
 import { SidebarToggleIcon } from "./icons.js";
+import { useT } from "../i18n.js";
 
 interface Props {
   projects: Project[];
@@ -39,6 +40,7 @@ export function ChatRail({
   onToggleExpanded,
   onSettings,
 }: Props): React.ReactElement {
+  const t = useT();
   const [ctx, setCtx] = useState<Ctx | null>(null);
 
   function buildItems(c: Ctx): MenuItem[] {
@@ -47,24 +49,24 @@ export function ChatRail({
       ...(isActive
         ? [
             {
-              label: "Close project",
+              label: t("rail.close_project"),
               onClick: () => onClose(),
             },
             { label: "-", onClick: () => {} },
           ]
         : []),
       {
-        label: "Open project",
+        label: t("rail.open_project"),
         disabled: isActive,
         onClick: () => onPick(c.project.id),
       },
       {
-        label: "Reveal in file explorer",
+        label: t("rail.reveal_explorer"),
         onClick: () => window.vibe.fs.reveal(c.project.path),
       },
       { label: "-", onClick: () => {} },
       {
-        label: "Remove from list",
+        label: t("rail.remove_from_list"),
         danger: true,
         onClick: () => onRemove(c.project.id),
       },
@@ -78,8 +80,8 @@ export function ChatRail({
           "chatrail__top" + (expanded ? " chatrail__top--active" : "")
         }
         onClick={onToggleExpanded}
-        title={expanded ? "Hide sessions" : "Show sessions"}
-        aria-label="Toggle sessions"
+        title={expanded ? t("rail.hide_sessions") : t("rail.show_sessions")}
+        aria-label={t("rail.toggle_sessions")}
       >
         <SidebarToggleIcon />
       </button>
@@ -117,8 +119,8 @@ export function ChatRail({
         <button
           className="chatrail__add"
           onClick={onAdd}
-          title="Open folder"
-          aria-label="Open folder"
+          title={t("rail.open_folder")}
+          aria-label={t("rail.open_folder")}
         >
           +
         </button>
@@ -127,8 +129,8 @@ export function ChatRail({
       <div className="chatrail__bottom">
         <button
           className="chatrail__settings"
-          title="Settings"
-          aria-label="Settings"
+          title={t("rail.settings")}
+          aria-label={t("rail.settings")}
           onClick={onSettings}
         >
           <svg

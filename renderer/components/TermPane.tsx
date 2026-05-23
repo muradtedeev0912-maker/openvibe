@@ -2,13 +2,14 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import React, { useEffect, useRef } from "react";
+import { useTheme } from "../theme.js";
 
 interface Props {
   id: string;
   visible: boolean;
 }
 
-const THEME = {
+const DARK_THEME = {
   background: "#161616",
   foreground: "#e6e6e6",
   cursor: "#e6e6e6",
@@ -32,10 +33,35 @@ const THEME = {
   brightCyan: "#67e8f9",
 };
 
+const LIGHT_THEME = {
+  background: "#ececec",
+  foreground: "#1f2024",
+  cursor: "#1f2024",
+  cursorAccent: "#ececec",
+  selectionBackground: "#bfbfbf",
+  black: "#1f2024",
+  brightBlack: "#4a4d54",
+  white: "#1f2024",
+  brightWhite: "#000000",
+  red: "#dc2626",
+  brightRed: "#b91c1c",
+  green: "#16a34a",
+  brightGreen: "#15803d",
+  yellow: "#ca8a04",
+  brightYellow: "#a16207",
+  blue: "#2563eb",
+  brightBlue: "#1d4ed8",
+  magenta: "#7c3aed",
+  brightMagenta: "#6d28d9",
+  cyan: "#0891b2",
+  brightCyan: "#0e7490",
+};
+
 export function TermPane({ id, visible }: Props): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const theme = useTheme();
 
   // Mount xterm + start PTY once per pane
   useEffect(() => {
@@ -49,7 +75,7 @@ export function TermPane({ id, visible }: Props): React.ReactElement {
       cursorStyle: "block",
       allowProposedApi: true,
       scrollback: 5000,
-      theme: THEME,
+      theme: theme === "light" ? LIGHT_THEME : DARK_THEME,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -100,6 +126,13 @@ export function TermPane({ id, visible }: Props): React.ReactElement {
       fitRef.current = null;
     };
   }, [id]);
+
+  // Update terminal theme when the app theme changes (without remounting)
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.theme = theme === "light" ? LIGHT_THEME : DARK_THEME;
+    }
+  }, [theme]);
 
   // Refit and focus when becoming visible
   useEffect(() => {

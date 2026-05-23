@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ContentPart, FileMatch } from "../types.js";
+import { useT } from "../i18n.js";
+import { useComposerStyle } from "../composerStyle.js";
+import { FileIcon } from "./icons.js";
 import stoppedSfx from "../stoped.mp3";
 
 export interface SlashCommand {
@@ -77,6 +80,19 @@ export function Composer({
   inject,
   onInjected,
 }: Props): React.ReactElement {
+  const t = useT();
+  const composerStyle = useComposerStyle();
+
+  const SLASH_COMMANDS_LOCALIZED = useMemo<SlashCommand[]>(() => [
+    { name: "/help", description: t("slash.cmd.help") },
+    { name: "/clear", description: t("slash.cmd.clear") },
+    { name: "/reset", description: t("slash.cmd.reset") },
+    { name: "/cwd", description: t("slash.cmd.cwd") },
+    { name: "/model", description: t("slash.cmd.model") },
+    { name: "/new", description: t("slash.cmd.new") },
+    { name: "/exit", description: t("slash.cmd.exit") },
+  ], [t]);
+
   const [value, setValue] = useState("");
   const [slashSelected, setSlashSelected] = useState(0);
   const [focused, setFocused] = useState(false);
@@ -106,10 +122,10 @@ export function Composer({
     if (mention.active) return [];
     if (!value.startsWith("/")) return [];
     const q = value.slice(1).toLowerCase();
-    return SLASH_COMMANDS.filter((c) =>
+    return SLASH_COMMANDS_LOCALIZED.filter((c) =>
       c.name.slice(1).toLowerCase().startsWith(q),
     );
-  }, [value, mention.active]);
+  }, [value, mention.active, SLASH_COMMANDS_LOCALIZED]);
 
   // auto-resize textarea
   useEffect(() => {
@@ -117,7 +133,7 @@ export function Composer({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
-  }, [value, attachments.length]);
+  }, [value, attachments.length, composerStyle]);
 
   useEffect(() => {
     if (!disabled) ref.current?.focus();
@@ -458,10 +474,10 @@ export function Composer({
       {mention.active ? (
         <div className="popup popup--mentions" role="listbox">
           {mention.loading && mention.matches.length === 0 ? (
-            <div className="popup__empty">searching…</div>
+            <div className="popup__empty">{t("common.searching")}</div>
           ) : null}
           {!mention.loading && mention.matches.length === 0 ? (
-            <div className="popup__empty">no matches</div>
+            <div className="popup__empty">{t("common.no_matches")}</div>
           ) : null}
           {mention.matches.map((m, i) => (
             <div
@@ -524,15 +540,18 @@ export function Composer({
               {a.kind === "image" ? (
                 <img className="chip__thumb" src={a.dataUrl} alt="" />
               ) : (
-                <span className="chip__icon">⌘</span>
+                <span className="chip__icon"><FileIcon name={a.name} /></span>
               )}
               <span className="chip__name">{a.name}</span>
               <button
                 className="chip__remove"
                 onClick={() => removeAttachment(a.id)}
-                aria-label="Remove"
+                aria-label={t("composer.remove")}
               >
-                ×
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
           ))}
@@ -560,8 +579,8 @@ export function Composer({
           onPaste={onPaste}
           placeholder={
             disabled
-              ? "thinking…"
-              : "Ask vibe to do something. Type @ to mention a file, / for commands."
+              ? t("composer.placeholder_thinking")
+              : t("composer.placeholder")
           }
           spellCheck={false}
         />
@@ -581,8 +600,8 @@ export function Composer({
           className="composer__icon"
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
-          title="Attach image"
-          aria-label="Attach image"
+          title={t("composer.attach_image")}
+          aria-label={t("composer.attach_image")}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -593,17 +612,31 @@ export function Composer({
             type="button"
             className="composer__icon composer__icon--stop"
             onClick={() => { (window as any).__vibeAborted = true; window.vibe.abort(); const a = new Audio(stoppedSfx); a.volume = 0.5; a.play().catch(() => {}); }}
-            title="Stop generation"
-            aria-label="Stop"
+            title={t("composer.stop")}
+            aria-label={t("composer.stop")}
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
               <rect x="3" y="3" width="10" height="10" rx="2" />
             </svg>
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className="composer__icon composer__icon--send"
+            disabled={!value.trim() && attachments.length === 0}
+            onClick={() => submit()}
+            title={t("composer.send")}
+            aria-label={t("composer.send")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="composer__hint">
-        Enter to send · Shift+Enter for newline · @ for files · / for commands · drop or paste images
+        {t("composer.hint")}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatSummary } from "../types.js";
+import { useT } from "../i18n.js";
 
 interface Props {
   open: boolean;
@@ -49,6 +50,7 @@ function PopMenu({
   onRename: () => void;
   onDelete: () => void;
 }): React.ReactElement {
+  const t = useT();
   return (
     <div className="popmenu" role="menu" onClick={(e) => e.stopPropagation()}>
       <button className="popmenu__item" role="menuitem" onClick={onRename}>
@@ -65,7 +67,7 @@ function PopMenu({
         >
           <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" />
         </svg>
-        Rename
+        {t("common.rename")}
       </button>
       <div className="popmenu__sep" />
       <button
@@ -86,7 +88,7 @@ function PopMenu({
         >
           <path d="M3 4h10M6 4V2.5h4V4M5 4l1 9.5h4L11 4" />
         </svg>
-        Delete
+        {t("common.delete")}
       </button>
     </div>
   );
@@ -147,6 +149,7 @@ export function ChatSidebar({
   onRename,
   onClose,
 }: Props): React.ReactElement {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -208,12 +211,12 @@ export function ChatSidebar({
 
         <button className="chatside__newsession" onClick={onNew}>
           <PenIcon />
-          <span>New session</span>
+          <span>{t("chatside.new_session")}</span>
         </button>
 
         <input
           className="chatside__search"
-          placeholder="Search"
+          placeholder={t("chatside.search")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           spellCheck={false}
@@ -222,7 +225,7 @@ export function ChatSidebar({
         <div className="chatside__list">
           {filtered.length === 0 ? (
             <div className="chatside__empty">
-              {query ? "No matches" : "No sessions yet"}
+              {query ? t("chatside.no_matches") : t("chatside.no_sessions")}
             </div>
           ) : null}
           {filtered.map((c) => (
@@ -247,16 +250,16 @@ export function ChatSidebar({
               </span>
               {renamingId === c.id ? (
                 <RenameInput
-                  initial={c.title || "Untitled"}
-                  onCommit={(t) => {
-                    onRename(c.id, t);
+                  initial={c.title || t("common.untitled")}
+                  onCommit={(title) => {
+                    onRename(c.id, title);
                     setRenamingId(null);
                   }}
                   onCancel={() => setRenamingId(null)}
                 />
               ) : (
                 <span className="chatside__rowtitle">
-                  {c.title || "Untitled"}
+                  {c.title || t("common.untitled")}
                 </span>
               )}
               <button
@@ -265,7 +268,7 @@ export function ChatSidebar({
                   e.stopPropagation();
                   setMenuFor(menuFor === c.id ? null : c.id);
                 }}
-                aria-label="More"
+                aria-label={t("chatside.more")}
               >
                 ⋯
               </button>

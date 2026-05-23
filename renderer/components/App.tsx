@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+﻿import React, { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ChatRecord,
   ChatSummary,
@@ -18,6 +18,7 @@ import { History, type HistoryItem } from "./History.js";
 import { Settings } from "./Settings.js";
 import { Terminals } from "./Terminals.js";
 import { Titlebar } from "./Titlebar.js";
+import { useT } from "../i18n.js";
 import successSfx from "../succes.mp3";
 
 function playSound(src: string): void {
@@ -92,6 +93,7 @@ function recordToItems(record: ChatRecord): HistoryItem[] {
 }
 
 export function App(): React.ReactElement {
+  const t = useT();
   const [state, setState] = useState<FatalState>({ kind: "ok" });
   const [config, setConfig] = useState<VibeConfig | null>(null);
   const [items, setItems] = useState<HistoryItem[]>([]);
@@ -112,6 +114,8 @@ export function App(): React.ReactElement {
   const [expandToPath, setExpandToPath] = useState<string | null>(null);
   const [chatInject, setChatInject] = useState<string | null>(null);
   const [termHeight, setTermHeight] = useState(220);
+  const [termClosing, setTermClosing] = useState(false);
+  const [termRender, setTermRender] = useState(false);
   const [editorWidth, setEditorWidth] = useState(420);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<string | null>(null);
@@ -237,6 +241,21 @@ export function App(): React.ReactElement {
     };
   }, []);
 
+  // Terminal smooth open/close
+  useEffect(() => {
+    if (termVisible) {
+      setTermRender(true);
+      setTermClosing(false);
+    } else if (termRender) {
+      setTermClosing(true);
+      const t = setTimeout(() => {
+        setTermRender(false);
+        setTermClosing(false);
+      }, 220);
+      return () => clearTimeout(t);
+    }
+  }, [termVisible]);
+
   // Save project UI state on window close
   useEffect(() => {
     const onBeforeUnload = () => saveProjectState(activeProject);
@@ -351,11 +370,7 @@ export function App(): React.ReactElement {
             {
               id: localId(),
               kind: "info",
-              text:
-                "/help    show this list\n" +
-                "/model   show active model and endpoint\n" +
-                "/new     create project from template\n" +
-                "/exit    quit",
+              text: t("slash.help"),
             },
           ]);
           return true;
@@ -385,7 +400,7 @@ export function App(): React.ReactElement {
               {
                 id: localId(),
                 kind: "info",
-                text: "No models connected yet. Open Settings (⚙) to add a provider.",
+                text: t("slash.no_models"),
               },
             ]);
             return true;
@@ -416,7 +431,7 @@ export function App(): React.ReactElement {
           setItems((p) => [
             ...p,
             { id: localId(), kind: "user", text },
-            { id: localId(), kind: "info", text: `Switched to: ${newModel}` },
+            { id: localId(), kind: "info", text: t("slash.switched_to", { model: newModel }) },
           ]);
           return true;
         }
@@ -431,7 +446,7 @@ export function App(): React.ReactElement {
                   setItems((p) => [...p, { id: localId(), kind: "error", text: res.error! }]);
                 }
               } else {
-                setItems((p) => [...p, { id: localId(), kind: "error", text: `Template not found: ${arg}` }]);
+                setItems((p) => [...p, { id: localId(), kind: "error", text: t("slash.template_not_found", { arg }) }]);
               }
             });
           } else {
@@ -457,13 +472,13 @@ export function App(): React.ReactElement {
             {
               id: localId(),
               kind: "error",
-              text: `unknown command: ${cmd}`,
+              text: t("slash.unknown", { cmd }),
             },
           ]);
           return true;
       }
     },
-    [config, folder],
+    [config, folder, t],
   );
 
   const handleSubmit = useCallback(
@@ -722,11 +737,10 @@ export function App(): React.ReactElement {
       <div className="app">
         <Titlebar />
         <div className="fatal">
-          <div className="fatal__title">Couldn't start vibe</div>
+          <div className="fatal__title">{t("app.fatal_title")}</div>
           <div className="fatal__msg">{state.error}</div>
           <div className="fatal__hint">
-            Set <code>VIBE_API_KEY</code> in a <code>.env</code> next to vibe,
-            in <code>~/.vibe/config</code>, or as an environment variable.
+            {t("app.fatal_hint_prefix")} <code>VIBE_API_KEY</code>{t("app.fatal_hint_suffix")}
           </div>
         </div>
       </div>
@@ -741,7 +755,7 @@ export function App(): React.ReactElement {
           <span className="busy__dot" />
           <span className="busy__dot" />
           <span className="busy__dot" />
-          <span>starting…</span>
+          <span>{t("common.starting")}</span>
         </div>
       </div>
     );
@@ -767,7 +781,7 @@ export function App(): React.ReactElement {
             <img className="welcome__icon" src="./icon.png" alt="OpenVibe" draggable={false} />
             <div className="welcome__brand">OpenVibe</div>
             <div className="welcome__hint">
-              No project open. Pick a folder to start a session in it.
+              {t("welcome.no_project")}
             </div>
             <button className="welcome__btn" onClick={handleAddProject}>
               <svg
@@ -783,7 +797,7 @@ export function App(): React.ReactElement {
               >
                 <path d="M1.5 4.5h4l1.5 1.5h7.5v7a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-8.5z" />
               </svg>
-              Open Project
+              {t("welcome.open_project")}
             </button>
           </div>
         </div>
@@ -828,7 +842,7 @@ export function App(): React.ReactElement {
               <div className="tabs">
                 <button
                   className={"tabs__btn tabs__btn--active"}
-                  title="Chat"
+                  title={t("tabs.chat")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -837,7 +851,7 @@ export function App(): React.ReactElement {
                 <button
                   className={"tabs__btn" + (termVisible ? " tabs__btn--active" : "")}
                   onClick={() => setTermVisible(!termVisible)}
-                  title="Terminal"
+                  title={t("tabs.terminal")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="4 17 10 11 4 5"/>
@@ -850,7 +864,7 @@ export function App(): React.ReactElement {
                   onClick={() => {
                     if (editorPath) setEditorVisible(!editorVisible);
                   }}
-                  title="Editor"
+                  title={t("tabs.editor")}
                   disabled={!editorPath}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -861,7 +875,7 @@ export function App(): React.ReactElement {
                 <button
                   className={"tabs__btn" + (sidebarVisible ? " tabs__btn--active" : "")}
                   onClick={() => setSidebarVisible(!sidebarVisible)}
-                  title="Toggle files"
+                  title={t("tabs.toggle_files")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -870,7 +884,7 @@ export function App(): React.ReactElement {
                 <button
                   className={"tabs__btn"}
                   onClick={() => setMcpOpen(true)}
-                  title="MCP Servers"
+                  title={t("tabs.mcp_servers")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="2" width="20" height="8" rx="2"/>
@@ -882,7 +896,7 @@ export function App(): React.ReactElement {
                 <button
                   className={"tabs__btn"}
                   onClick={() => setSnapshotOpen(true)}
-                  title="Project Snapshots"
+                  title={t("tabs.snapshots")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -924,7 +938,7 @@ export function App(): React.ReactElement {
                         <span className="loader__dot" /><span className="loader__dot" /><span className="loader__dot" />
                         <span className="loader__dot" /><span className="loader__dot" /><span className="loader__dot" />
                       </div>
-                      <span className="loader__text">thinking...</span>
+                      <span className="loader__text">{t("common.thinking")}</span>
                     </div>
                   ) : null}
                   {pending ? (
@@ -941,8 +955,8 @@ export function App(): React.ReactElement {
                   )}
                 </div>
 
-                {termVisible ? (
-                  <div className="main__terminal" style={{ height: termHeight }}>
+                {termRender ? (
+                  <div className={"main__terminal" + (termClosing ? " main__terminal--closing" : "")} style={{ height: termHeight }}>
                     <div
                       className="resize-handle"
                       onMouseDown={(e) => {
@@ -1034,8 +1048,15 @@ export function App(): React.ReactElement {
 
 
 function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
+  const t = useT();
   const [servers, setServers] = useState<Array<{ id: string; name: string; connected: boolean; toolCount: number }>>([]);
   const [adding, setAdding] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  function handleClose(): void {
+    setClosing(true);
+    setTimeout(() => onClose(), 200);
+  }
   const [name, setName] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -1084,17 +1105,22 @@ function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
   }
 
   return (
-    <div className="settings__overlay" onClick={onClose}>
-      <div className="settings" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+    <div className={"settings__overlay" + (closing ? " settings__overlay--closing" : "")} onClick={handleClose}>
+      <div className={"settings settings--medium" + (closing ? " settings--closing" : "")} onClick={(e) => e.stopPropagation()}>
         <div className="settings__header">
-          <h2>MCP Servers</h2>
-          <button className="settings__close" onClick={onClose}>×</button>
+          <h2>{t("mcp.title")}</h2>
+          <button className="settings__close" onClick={handleClose} aria-label={t("common.close")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         <div className="settings__list">
           {servers.length === 0 && !adding ? (
             <div style={{ color: "var(--fg-muted)", fontSize: 12, padding: "12px 0" }}>
-              No MCP servers configured. Add one to extend the agent with external tools.
+              {t("mcp.empty")}
             </div>
           ) : null}
 
@@ -1104,25 +1130,25 @@ function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
                 <div className="settings__row-name">
                   {s.name}
                   {s.connected ? (
-                    <span className="settings__connected">{s.toolCount} tools</span>
+                    <span className="settings__connected">{t("mcp.tools", { n: s.toolCount })}</span>
                   ) : null}
                 </div>
                 <div className="settings__row-desc">
-                  {s.connected ? "Connected" : "Disconnected"}
+                  {s.connected ? t("mcp.connected") : t("mcp.disconnected")}
                 </div>
               </div>
               <div className="settings__row-actions">
                 {s.connected ? (
                   <button className="settings__disconnect" onClick={() => handleDisconnect(s.id)}>
-                    Disconnect
+                    {t("common.disconnect")}
                   </button>
                 ) : (
                   <button className="settings__connect" onClick={() => handleConnect(s.id)}>
-                    Connect
+                    {t("common.connect")}
                   </button>
                 )}
                 <button className="settings__disconnect" onClick={() => handleRemove(s.id)}>
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             </div>
@@ -1132,30 +1158,29 @@ function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
         {adding ? (
           <div className="settings__form" style={{ marginTop: 16 }}>
             <label className="settings__label">
-              Name
-              <input className="settings__input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Postgres" />
+              {t("settings.name")}
+              <input className="settings__input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("mcp.name_placeholder")} />
             </label>
             <label className="settings__label">
-              Command
-              <input className="settings__input" value={command} onChange={(e) => setCommand(e.target.value)} placeholder="e.g. npx or uvx" />
+              {t("mcp.command")}
+              <input className="settings__input" value={command} onChange={(e) => setCommand(e.target.value)} placeholder={t("mcp.command_placeholder")} />
             </label>
             <label className="settings__label">
-              Arguments (space-separated)
-              <input className="settings__input" value={args} onChange={(e) => setArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-github" />
+              {t("mcp.args")}
+              <input className="settings__input" value={args} onChange={(e) => setArgs(e.target.value)} placeholder={t("mcp.args_placeholder")} />
             </label>
             <label className="settings__label">
-              Environment variables (KEY=VALUE, one per line)
-              <textarea className="settings__input" value={envStr} onChange={(e) => setEnvStr(e.target.value)} placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx" style={{ minHeight: 50, resize: "vertical" }} />
+              {t("mcp.env")}
+              <textarea className="settings__input" value={envStr} onChange={(e) => setEnvStr(e.target.value)} placeholder={t("mcp.env_placeholder")} style={{ minHeight: 50, resize: "vertical" }} />
             </label>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="settings__save" onClick={handleAdd}>Add Server</button>
-              <button className="settings__connect" onClick={() => setAdding(false)}>Cancel</button>
+              <button className="settings__save" onClick={handleAdd}>{t("mcp.add_server")}</button>
             </div>
           </div>
         ) : (
-          <div style={{ position: "absolute", bottom: 28, left: 28 }}>
-            <button className="settings__save" onClick={() => setAdding(true)}>
-              + Add MCP Server
+          <div style={{ marginTop: 16 }}>
+            <button className="settings__connect" onClick={() => setAdding(true)}>
+              {t("mcp.add_button")}
             </button>
           </div>
         )}
@@ -1166,8 +1191,15 @@ function McpPanel({ onClose }: { onClose: () => void }): React.ReactElement {
 
 
 function SnapshotPanel({ onClose }: { onClose: () => void }): React.ReactElement {
+  const t = useT();
   const [snapshots, setSnapshots] = useState<Array<{ name: string; path: string; size: number; date: string }>>([]);
   const [creating, setCreating] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  function handleClose(): void {
+    setClosing(true);
+    setTimeout(() => onClose(), 200);
+  }
 
   useEffect(() => {
     window.vibe.snapshot.list().then(setSnapshots);
@@ -1191,21 +1223,26 @@ function SnapshotPanel({ onClose }: { onClose: () => void }): React.ReactElement
   }
 
   return (
-    <div className="settings__overlay" onClick={onClose}>
-      <div className="settings" style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+    <div className={"settings__overlay" + (closing ? " settings__overlay--closing" : "")} onClick={handleClose}>
+      <div className={"settings settings--medium" + (closing ? " settings--closing" : "")} onClick={(e) => e.stopPropagation()}>
         <div className="settings__header">
-          <h2>Project Snapshots</h2>
-          <button className="settings__close" onClick={onClose}>×</button>
+          <h2>{t("snap.title")}</h2>
+          <button className="settings__close" onClick={handleClose} aria-label={t("common.close")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         <div style={{ color: "var(--fg-muted)", fontSize: 12, marginBottom: 12 }}>
-          Create a zip backup of your entire project. Download anytime.
+          {t("snap.desc")}
         </div>
 
         <div className="settings__list" style={{ maxHeight: 320, overflowY: "auto" }}>
           {snapshots.length === 0 ? (
             <div style={{ color: "var(--fg-muted)", fontSize: 12, padding: "12px 0" }}>
-              No snapshots yet.
+              {t("snap.empty")}
             </div>
           ) : null}
 
@@ -1218,18 +1255,19 @@ function SnapshotPanel({ onClose }: { onClose: () => void }): React.ReactElement
                 </div>
               </div>
               <button className="settings__connect" onClick={() => window.vibe.snapshot.reveal(s.path)}>
-                Show
+                {t("snap.show")}
               </button>
             </div>
           ))}
         </div>
 
-        <div style={{ position: "absolute", bottom: 28, left: 28 }}>
-          <button style={{ border: "1px solid var(--line)", background: "transparent", color: "var(--fg-dim)", padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer" }} onClick={handleCreate} disabled={creating}>
-            {creating ? "Creating..." : "Create Snapshot"}
+        <div style={{ marginTop: 16 }}>
+          <button className="settings__connect" onClick={handleCreate} disabled={creating}>
+            {creating ? t("snap.creating") : t("snap.create")}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

@@ -6,6 +6,9 @@ import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import * as monaco from "monaco-editor";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FileIcon } from "./icons.js";
+import { useT } from "../i18n.js";
+import { useTheme } from "../theme.js";
 
 // Wire up Monaco workers for Vite (one-time, module scope is fine)
 self.MonacoEnvironment = {
@@ -19,10 +22,11 @@ self.MonacoEnvironment = {
 };
 loader.config({ monaco });
 
-// Simple dark theme matching the app
-const THEME_DEFINED = { current: false };
-function ensureTheme(m: typeof monaco): void {
-  if (THEME_DEFINED.current) return;
+// Editor themes — match the app palette so the editor blends in seamlessly
+// in both light and dark modes.
+const THEMES_DEFINED = { current: false };
+function ensureThemes(m: typeof monaco): void {
+  if (THEMES_DEFINED.current) return;
   m.editor.defineTheme("vibe-dark", {
     base: "vs-dark",
     inherit: true,
@@ -44,7 +48,28 @@ function ensureTheme(m: typeof monaco): void {
       "scrollbarSlider.activeBackground": "#3a3a3acc",
     },
   });
-  THEME_DEFINED.current = true;
+  m.editor.defineTheme("vibe-light", {
+    base: "vs",
+    inherit: true,
+    rules: [],
+    colors: {
+      "editor.background": "#ececec",
+      "editor.foreground": "#1f2024",
+      "editorLineNumber.foreground": "#80848d",
+      "editorLineNumber.activeForeground": "#1f2024",
+      "editor.lineHighlightBackground": "#e2e2e2",
+      "editor.selectionBackground": "#bfbfbf",
+      "editorCursor.foreground": "#1f2024",
+      "editorIndentGuide.background": "#d6d6d6",
+      "editorIndentGuide.activeBackground": "#b8b8b8",
+      "editorWidget.background": "#e2e2e2",
+      "editorWidget.border": "#cdcdcd",
+      "scrollbarSlider.background": "#b8b8b855",
+      "scrollbarSlider.hoverBackground": "#b8b8b899",
+      "scrollbarSlider.activeBackground": "#80848dcc",
+    },
+  });
+  THEMES_DEFINED.current = true;
 }
 
 const LANG_MAP: Record<string, string> = {
@@ -98,6 +123,20 @@ function basename(path: string): string {
   return m?.[1] ?? path;
 }
 
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "avif"]);
+const VIDEO_EXTS = new Set(["mp4", "webm", "ogv", "mov"]);
+const AUDIO_EXTS = new Set(["mp3", "wav", "ogg", "flac", "m4a"]);
+
+function getMediaKind(path: string): "image" | "video" | "audio" | null {
+  const m = /\.([a-zA-Z0-9]+)$/.exec(path);
+  if (!m) return null;
+  const ext = m[1]!.toLowerCase();
+  if (IMAGE_EXTS.has(ext)) return "image";
+  if (VIDEO_EXTS.has(ext)) return "video";
+  if (AUDIO_EXTS.has(ext)) return "audio";
+  return null;
+}
+
 interface Props {
   path: string;
   cwd: string;
@@ -111,6 +150,8 @@ interface Props {
 }
 
 export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, onSwitchTab, onCloseTab, onSendToChat }: Props): React.ReactElement {
+  const t = useT();
+  const theme = useTheme();
   const [content, setContent] = useState<string | null>(null);
   const [original, setOriginal] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -118,11 +159,43 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
+  const mediaKind = getMediaKind(path);
+  const isMedia = mediaKind !== null;
+  const [mediaSrc, setMediaSrc] = useState<string>("");
+
+  useEffect(() => {
+    if (!isMedia) {
+      setMediaSrc("");
+      return;
+    }
+    let cancelled = false;
+    window.vibe.fs.readBinary(path).then((res) => {
+      if (cancelled) return;
+      if (res.ok) {
+        const ext = path.toLowerCase().split(".").pop() || "";
+        const mime =
+          mediaKind === "image"
+            ? ext === "svg" ? "image/svg+xml" : `image/${ext === "jpg" ? "jpeg" : ext}`
+            : mediaKind === "video"
+              ? `video/${ext === "mov" ? "quicktime" : ext}`
+              : `audio/${ext === "m4a" ? "mp4" : ext}`;
+        setMediaSrc(`data:${mime};base64,${res.base64}`);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [path, isMedia, mediaKind]);
+
   useEffect(() => {
     let cancelled = false;
     setContent(null);
     setError(null);
     setSavedAt(null);
+    if (isMedia) {
+      // No text content for media files
+      setContent("");
+      setOriginal("");
+      return;
+    }
     window.vibe.fs.read(path).then((res) => {
       if (cancelled) return;
       if (!res.ok) setError(res.error);
@@ -134,7 +207,7 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, isMedia]);
 
   // Auto-reload when AI edits the file (real-time updates)
   useEffect(() => {
@@ -217,13 +290,17 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
               onClick={() => onSwitchTab?.(tab)}
               title={tab}
             >
+              <span className="editor__tab-icon"><FileIcon name={basename(tab)} /></span>
               <span className="editor__tab-name">{basename(tab)}</span>
               <button
                 className="editor__tab-close"
                 onClick={(e) => { e.stopPropagation(); onCloseTab?.(tab); }}
-                title="Close"
+                title={t("editor.close_tab")}
               >
-                ×
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
           ))}
@@ -269,7 +346,7 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
                 e.dataTransfer.setData("text/plain", context);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              title="Drag to chat input (select code first for line range)"
+              title={t("editor.send_to_chat")}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
@@ -277,31 +354,41 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
             </span>
           ) : null}
           {savedAt && !dirty ? (
-            <span className="editor__saved">saved</span>
+            <span className="editor__saved">{t("editor.saved")}</span>
           ) : null}
           <button
             className="editor__save"
             disabled={!dirty || saving}
             onClick={save}
-            title="Save (Ctrl+S)"
+            title={t("editor.save_tooltip")}
           >
-            {saving ? "saving…" : "save"}
+            {saving ? t("editor.saving") : t("editor.save")}
           </button>
         </div>
       </div>
       {error ? <div className="editor__error">{error}</div> : null}
       <div className="editor__body">
         {content === null && !error ? (
-          <div className="editor__loading">loading…</div>
+          <div className="editor__loading">{t("common.loading")}</div>
         ) : null}
-        {content !== null ? (
+        {isMedia ? (
+          <div className="editor__media">
+            {mediaKind === "image" ? (
+              <img className="editor__media-img" src={mediaSrc} alt={basename(path)} />
+            ) : mediaKind === "video" ? (
+              <video className="editor__media-video" src={mediaSrc} controls />
+            ) : mediaKind === "audio" ? (
+              <audio className="editor__media-audio" src={mediaSrc} controls />
+            ) : null}
+          </div>
+        ) : content !== null ? (
           <MonacoEditor
             height="100%"
-            theme="vibe-dark"
+            theme={theme === "light" ? "vibe-light" : "vibe-dark"}
             language={detectLanguage(path)}
             value={content}
             onChange={(v) => setContent(v ?? "")}
-            beforeMount={(m) => ensureTheme(m)}
+            beforeMount={(m) => ensureThemes(m)}
             onMount={(ed) => {
               editorRef.current = ed;
             }}

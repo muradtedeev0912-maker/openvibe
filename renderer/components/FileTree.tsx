@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { FsEntry } from "../types.js";
 import { ContextMenu, type MenuItem } from "./ContextMenu.js";
 import { FileIcon, FolderIcon } from "./icons.js";
+import { useT } from "../i18n.js";
 
 interface NodeState {
   open: boolean;
@@ -57,6 +58,7 @@ interface NodeProps {
 }
 
 function FileNode(props: NodeProps): React.ReactElement {
+  const t = useT();
   const {
     entry,
     depth,
@@ -145,9 +147,11 @@ function FileNode(props: NodeProps): React.ReactElement {
 
   function onDragOver(e: React.DragEvent<HTMLDivElement>): void {
     if (!entry.isDir) return;
-    if (!e.dataTransfer.types.includes("application/x-vibe-path")) return;
+    const isExternal = e.dataTransfer.types.includes("Files");
+    const isInternal = e.dataTransfer.types.includes("application/x-vibe-path");
+    if (!isInternal && !isExternal) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = isExternal ? "copy" : "move";
     setDropOver(true);
   }
 
@@ -158,19 +162,43 @@ function FileNode(props: NodeProps): React.ReactElement {
   async function onDrop(e: React.DragEvent<HTMLDivElement>): Promise<void> {
     setDropOver(false);
     if (!entry.isDir) return;
+
+    // Internal drag from file tree
     const srcPath = e.dataTransfer.getData("application/x-vibe-path");
-    if (!srcPath || srcPath === entry.path) return;
-    e.preventDefault();
-    // Move: rename srcPath → entry.path/basename
-    const srcName = srcPath.split(/[\\/]/).pop() ?? srcPath;
-    const sep = srcPath.includes("\\") ? "\\" : "/";
-    const destPath = entry.path + sep + srcName;
-    if (srcPath === destPath) return;
-    const res = await window.vibe.fs.rename(srcPath, destPath);
-    if (res.ok) {
-      // Refresh all and expand the target folder to show the moved item
+    if (srcPath) {
+      if (srcPath === entry.path) return;
+      e.preventDefault();
+      const srcName = srcPath.split(/[\\/]/).pop() ?? srcPath;
+      const sep = srcPath.includes("\\") ? "\\" : "/";
+      const destPath = entry.path + sep + srcName;
+      if (srcPath === destPath) return;
+      const res = await window.vibe.fs.rename(srcPath, destPath);
+      if (res.ok) {
+        await refreshAll();
+        const listRes = await window.vibe.fs.list(entry.path);
+        if (listRes.ok) {
+          setStates((prev) => {
+            const map = new Map(prev);
+            map.set(entry.path, { open: true, loading: false, children: listRes.entries });
+            return map;
+          });
+        }
+      }
+      return;
+    }
+
+    // External drag from OS file explorer
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      const sep = entry.path.includes("\\") ? "\\" : "/";
+      for (const file of Array.from(e.dataTransfer.files)) {
+        const filePath = window.vibe.getPathForFile(file);
+        if (!filePath) continue;
+        const destPath = entry.path + sep + file.name;
+        if (filePath === destPath) continue;
+        await window.vibe.fs.copy(filePath, destPath);
+      }
       await refreshAll();
-      // Force-expand the target folder
       const listRes = await window.vibe.fs.list(entry.path);
       if (listRes.ok) {
         setStates((prev) => {
@@ -226,7 +254,7 @@ function FileNode(props: NodeProps): React.ReactElement {
           className="ftree__loading"
           style={{ paddingLeft: 8 + (depth + 1) * 12 }}
         >
-          loading…
+          {t("common.loading")}
         </div>
       ) : null}
       {open && state?.error ? (
@@ -331,6 +359,7 @@ export function FileTree({
   expandToPath,
   onExpandDone,
 }: RootProps): React.ReactElement {
+  const t = useT();
   const [root, setRoot] = useState<FsEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [states, setStates] = useState<Map<string, NodeState>>(new Map());
@@ -452,17 +481,17 @@ export function FileTree({
     if (!entry) {
       return [
         {
-          label: "New file",
+          label: t("ftree.new_file"),
           onClick: () => promptCreate(parent, "file"),
         },
         {
-          label: "New folder",
+          label: t("ftree.new_folder"),
           onClick: () => promptCreate(parent, "dir"),
         },
         ...((cutPath || copyPath) ? [
           { label: "-", onClick: () => {} },
           {
-            label: "Paste",
+            label: t("ftree.paste"),
             shortcut: "Ctrl+V",
             onClick: async () => {
               const srcPath = cutPath || copyPath;
@@ -489,7 +518,7 @@ export function FileTree({
         ] : []),
         { label: "-", onClick: () => {} },
         {
-          label: "Reveal in file explorer",
+          label: t("ftree.reveal_explorer"),
           onClick: () => window.vibe.fs.reveal(parent),
         },
       ];
@@ -498,15 +527,15 @@ export function FileTree({
     const dirItems: MenuItem[] = entry.isDir
       ? [
           {
-            label: "New file",
+            label: t("ftree.new_file"),
             onClick: () => promptCreate(entry.path, "file"),
           },
           {
-            label: "New folder",
+            label: t("ftree.new_folder"),
             onClick: () => promptCreate(entry.path, "dir"),
           },
           ...((cutPath || copyPath) ? [{
-            label: "Paste here",
+            label: t("ftree.paste_here"),
             onClick: async () => {
               const srcPath = cutPath || copyPath;
               if (!srcPath) return;
@@ -537,17 +566,17 @@ export function FileTree({
     return [
       ...dirItems,
       {
-        label: "Cut",
+        label: t("ftree.cut"),
         shortcut: "Ctrl+X",
         onClick: () => { setCutPath(entry.path); setCopyPath(null); },
       },
       {
-        label: "Copy",
+        label: t("ftree.copy"),
         shortcut: "Ctrl+C",
         onClick: () => { setCopyPath(entry.path); setCutPath(null); window.vibe.clipboard.writeText(entry.path); },
       },
       ...((cutPath || copyPath) ? [{
-        label: "Paste",
+        label: t("ftree.paste"),
         shortcut: "Ctrl+V",
         onClick: async () => {
           const srcPath = cutPath || copyPath;
@@ -573,25 +602,25 @@ export function FileTree({
         },
       }] : []),
       {
-        label: "Copy path",
+        label: t("ftree.copy_path"),
         onClick: () => window.vibe.clipboard.writeText(entry.path),
       },
       { label: "-", onClick: () => {} },
       {
-        label: "Rename",
+        label: t("ftree.rename"),
         shortcut: "F2",
         onClick: () => setRenaming(entry.path),
       },
       {
-        label: "Delete",
+        label: t("ftree.delete"),
         shortcut: "Del",
         danger: true,
         onClick: async () => {
-          const ok = window.confirm(`Delete "${entry.name}"? This cannot be undone.`);
+          const ok = window.confirm(t("ftree.delete_confirm", { name: entry.name }));
           if (!ok) return;
           const res = await window.vibe.fs.delete(entry.path);
           if (!res.ok) {
-            window.alert(`Delete failed: ${res.error}`);
+            window.alert(t("ftree.delete_failed", { err: res.error }));
             return;
           }
           if (cutPath === entry.path) setCutPath(null);
@@ -600,7 +629,7 @@ export function FileTree({
       },
       { label: "-", onClick: () => {} },
       {
-        label: "Reveal in file explorer",
+        label: t("ftree.reveal_explorer"),
         onClick: () => window.vibe.fs.reveal(entry.path),
       },
     ];
@@ -664,7 +693,7 @@ export function FileTree({
     setRenaming(null);
     const res = await window.vibe.fs.rename(oldPath, newPath);
     if (!res.ok) {
-      window.alert(`Rename failed: ${res.error}`);
+      window.alert(t("ftree.rename_failed", { err: res.error }));
       return;
     }
     await refreshDir(parent);
@@ -677,7 +706,7 @@ export function FileTree({
           {basename(cwd)}
         </span>
         <div className="ftree__actions">
-          <button className="ftree__action" title="New file" onClick={() => promptCreate(cwd, "file")}>
+          <button className="ftree__action" title={t("ftree.new_file")} onClick={() => promptCreate(cwd, "file")}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 1.5H5a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 5 14.5h6A1.5 1.5 0 0 0 12.5 13V5L9 1.5z"/>
               <path d="M9 1.5V5h3.5"/>
@@ -685,7 +714,7 @@ export function FileTree({
               <path d="M4.5 11v3M3 12.5h3" strokeWidth="1.2"/>
             </svg>
           </button>
-          <button className="ftree__action" title="New folder" onClick={() => promptCreate(cwd, "dir")}>
+          <button className="ftree__action" title={t("ftree.new_folder")} onClick={() => promptCreate(cwd, "dir")}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1.5 4h4l1 1.5h6a1 1 0 0 1 1 1v5.5a1 1 0 0 1-1 1H5"/>
               <path d="M1.5 4v7a1 1 0 0 0 1 1h1"/>
@@ -693,7 +722,7 @@ export function FileTree({
               <path d="M11.5 11v3M10 12.5h3" strokeWidth="1.2"/>
             </svg>
           </button>
-          <button className="ftree__action" title="Refresh" onClick={() => refreshAll()}>
+          <button className="ftree__action" title={t("ftree.refresh")} onClick={() => refreshAll()}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 3v3h-3"/>
               <path d="M3 8a5 5 0 0 1 8.5-3.5L13 6"/>
@@ -701,7 +730,7 @@ export function FileTree({
               <path d="M13 8a5 5 0 0 1-8.5 3.5L3 10"/>
             </svg>
           </button>
-          <button className="ftree__action" title="Collapse all" onClick={() => setStates(new Map())}>
+          <button className="ftree__action" title={t("ftree.collapse_all")} onClick={() => setStates(new Map())}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 10h3v3"/>
               <path d="M12 6h-3V3"/>
@@ -722,25 +751,42 @@ export function FileTree({
           }
         }}
         onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes("application/x-vibe-path")) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
+          if (e.dataTransfer.types.includes("application/x-vibe-path") || e.dataTransfer.types.includes("Files")) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = e.dataTransfer.types.includes("Files") ? "copy" : "move";
+          }
         }}
         onDrop={async (e) => {
+          // Internal drag from file tree
           const srcPath = e.dataTransfer.getData("application/x-vibe-path");
-          if (!srcPath) return;
-          e.preventDefault();
-          const srcName = srcPath.split(/[\\/]/).pop() ?? srcPath;
-          const sep = srcPath.includes("\\") ? "\\" : "/";
-          const destPath = cwd + sep + srcName;
-          if (srcPath === destPath) return;
-          const res = await window.vibe.fs.rename(srcPath, destPath);
-          if (res.ok) await refreshAll();
+          if (srcPath) {
+            e.preventDefault();
+            const srcName = srcPath.split(/[\\/]/).pop() ?? srcPath;
+            const sep = srcPath.includes("\\") ? "\\" : "/";
+            const destPath = cwd + sep + srcName;
+            if (srcPath === destPath) return;
+            const res = await window.vibe.fs.rename(srcPath, destPath);
+            if (res.ok) await refreshAll();
+            return;
+          }
+          // External drag from OS file explorer
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            e.preventDefault();
+            const sep = cwd.includes("\\") ? "\\" : "/";
+            for (const file of Array.from(e.dataTransfer.files)) {
+              const filePath = window.vibe.getPathForFile(file);
+              if (!filePath) continue;
+              const destPath = cwd + sep + file.name;
+              if (filePath === destPath) continue;
+              await window.vibe.fs.copy(filePath, destPath);
+            }
+            await refreshAll();
+          }
         }}
       >
         {error ? <div className="ftree__error">{error}</div> : null}
         {root === null && !error ? (
-          <div className="ftree__loading">loading…</div>
+          <div className="ftree__loading">{t("common.loading")}</div>
         ) : null}
         {creating && creating.dir === cwd ? (
           <div className="ftree__row" style={{ paddingLeft: 8 }}>

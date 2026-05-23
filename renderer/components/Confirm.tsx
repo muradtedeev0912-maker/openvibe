@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import type { ConfirmPayload } from "../types.js";
+import { useT } from "../i18n.js";
 
 interface Props {
   payload: ConfirmPayload;
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function Confirm({ payload, onDecide }: Props): React.ReactElement {
+  const t = useT();
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       const k = e.key.toLowerCase();
@@ -29,7 +31,7 @@ export function Confirm({ payload, onDecide }: Props): React.ReactElement {
   return (
     <div className="confirm">
       <div className="confirm__title">
-        Approve tool call: <code>{payload.toolName}</code>
+        {t("confirm.approve")} <code>{payload.toolName}</code>
       </div>
       {preview ? <div className="confirm__args">{preview}</div> : null}
       <div className="confirm__buttons">
@@ -37,19 +39,19 @@ export function Confirm({ payload, onDecide }: Props): React.ReactElement {
           className="confirm__btn confirm__btn--yes"
           onClick={() => onDecide("yes")}
         >
-          <kbd>Y</kbd> Yes, run it
+          <kbd>Y</kbd> {t("confirm.yes")}
         </button>
         <button
           className="confirm__btn confirm__btn--always"
           onClick={() => onDecide("always")}
         >
-          <kbd>A</kbd> Always allow this tool
+          <kbd>A</kbd> {t("confirm.always")}
         </button>
         <button
           className="confirm__btn confirm__btn--no"
           onClick={() => onDecide("no")}
         >
-          <kbd>N</kbd> No, skip
+          <kbd>N</kbd> {t("confirm.no")}
         </button>
       </div>
     </div>

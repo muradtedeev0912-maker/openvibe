@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { marked } from "marked";
+import { useT } from "../i18n.js";
 
 export interface AttachmentView {
   id: string;
@@ -170,7 +171,7 @@ function FileBadge({ info }: { info: FileBadgeInfo }): React.ReactElement {
         <img className="fbadge__icon" src="./floder/folder.svg" alt="" draggable={false} />
       ) : (
         <span className="fbadge__generic">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#888" strokeWidth="1.3" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" style={{ color: "var(--fg-dim)" }}>
             <path d="M3 1.5h6.5L13 5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2.5a1 1 0 0 1 1-1z" />
             <path d="M9.5 1.5V5h3.5" fill="none" />
           </svg>
@@ -292,6 +293,7 @@ function SpinIcon(): React.ReactElement {
 }
 
 function ToolBlock({ item, onShowTerminal, onOpenFile, workspace }: { item: HistoryItem; onShowTerminal?: () => void; onOpenFile?: (path: string) => void; workspace?: string }): React.ReactElement {
+  const t = useT();
   const { verb, file, suffix } = describe(item);
   const [expanded, setExpanded] = React.useState(false);
   const [reverted, setReverted] = React.useState(false);
@@ -373,7 +375,7 @@ function ToolBlock({ item, onShowTerminal, onOpenFile, workspace }: { item: Hist
           <button
             className="tool__revert"
             onClick={(e) => { e.stopPropagation(); handleRevert(); }}
-            title="Revert changes"
+            title={t("history.revert")}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="1 4 1 10 7 10"/>
@@ -491,6 +493,7 @@ interface Props {
 }
 
 export function History({ items, onPickModel, onPickTemplate, streamingId, onShowTerminal, onOpenFile, workspace }: Props): React.ReactElement {
+  const t = useT();
   const ref = useRef<HTMLDivElement | null>(null);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
@@ -514,7 +517,7 @@ export function History({ items, onPickModel, onPickTemplate, streamingId, onSho
         if (item.kind === "model-picker" && item.models) {
           return (
             <div key={item.id} className="modelpicker">
-              <div className="modelpicker__title">Select a model:</div>
+              <div className="modelpicker__title">{t("history.select_model")}</div>
               {item.models.map((m) => (
                 <button
                   key={m.id}
@@ -535,7 +538,7 @@ export function History({ items, onPickModel, onPickTemplate, streamingId, onSho
         if (item.kind === "template-picker" && item.templates) {
           return (
             <div key={item.id} className="tplpicker">
-              <div className="tplpicker__title">Project templates:</div>
+              <div className="tplpicker__title">{t("history.templates")}</div>
               <div className="tplpicker__grid">
                 {item.templates.map((t) => (
                   <button key={t.id} className="tplpicker__card" onClick={() => onPickTemplate?.(t.id)}>
@@ -587,12 +590,12 @@ export function History({ items, onPickModel, onPickTemplate, streamingId, onSho
             <div key={item.id} className={cls} onClick={() => {
               navigator.clipboard.writeText(item.text);
               showCopied(item.id);
-            }} title="Click to copy">
+            }} title={t("history.click_to_copy")}>
               <FormattedText text={item.text} />
               {item.id === streamingId ? (
                 <span className="msg__cursor" />
               ) : null}
-              {copiedId === item.id ? <span className="msg__copied">copied</span> : null}
+              {copiedId === item.id ? <span className="msg__copied">{t("common.copied")}</span> : null}
             </div>
           );
         }

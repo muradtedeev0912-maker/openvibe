@@ -139,6 +139,9 @@ export interface VibeApi {
     read: (path: string) => Promise<
       { ok: true; content: string } | { ok: false; error: string }
     >;
+    readBinary: (path: string) => Promise<
+      { ok: true; base64: string } | { ok: false; error: string }
+    >;
     write: (path: string, content: string) => Promise<
       { ok: true } | { ok: false; error: string }
     >;
@@ -178,6 +181,12 @@ export interface VibeApi {
   clipboard: {
     writeText: (text: string) => void;
   };
+  getPathForFile: (file: File) => string | null;
+  checkUpdate: () => Promise<
+    | { ok: true; latestVersion: string; url: string; name: string; body: string; currentVersion: string }
+    | { ok: false }
+  >;
+  openExternal: (url: string) => Promise<void>;
   whisper: {
     transcribe: (
       audioBase64: string,
@@ -196,6 +205,11 @@ export interface VibeApi {
     kill: (id: string) => Promise<void>;
     onData: (cb: (p: { id: string; chunk: string }) => void) => () => void;
     onExit: (cb: (p: { id: string; code: number }) => void) => () => void;
+  };
+
+  terminal: {
+    setShell: (shell: string) => Promise<boolean>;
+    getShell: () => Promise<string>;
   };
 }
 

@@ -1,9 +1,5 @@
 import React from "react";
 
-const STROKE = "#888888";
-const FILL = "#222222";
-const ACCENT = "#c084fc";
-
 export function FolderIcon({ open, name }: { open: boolean; name?: string }): React.ReactElement {
   const icon = name ? getFolderIcon(name, open) : null;
   if (icon) {
@@ -52,13 +48,13 @@ export function FileIcon({ name }: { name?: string }): React.ReactElement {
     >
       <path
         d="M3 1.5h6.5L13 5v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2.5a1 1 0 0 1 1-1z"
-        fill={FILL}
-        stroke={STROKE}
+        fill="var(--bg-3)"
+        stroke="var(--fg-dim)"
         strokeLinejoin="round"
       />
       <path
         d="M9.5 1.5V5h3.5"
-        stroke={STROKE}
+        stroke="var(--fg-dim)"
         fill="none"
         strokeLinejoin="round"
       />
