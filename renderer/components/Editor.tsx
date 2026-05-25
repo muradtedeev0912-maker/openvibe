@@ -69,6 +69,27 @@ function ensureThemes(m: typeof monaco): void {
       "scrollbarSlider.activeBackground": "#80848dcc",
     },
   });
+  m.editor.defineTheme("vibe-codex", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [],
+    colors: {
+      "editor.background": "#000000",
+      "editor.foreground": "#f5f5f5",
+      "editorLineNumber.foreground": "#6b6b6b",
+      "editorLineNumber.activeForeground": "#f5f5f5",
+      "editor.lineHighlightBackground": "#0a0a0a",
+      "editor.selectionBackground": "#262626",
+      "editorCursor.foreground": "#ffffff",
+      "editorIndentGuide.background": "#141414",
+      "editorIndentGuide.activeBackground": "#262626",
+      "editorWidget.background": "#0a0a0a",
+      "editorWidget.border": "#1a1a1a",
+      "scrollbarSlider.background": "#26262655",
+      "scrollbarSlider.hoverBackground": "#26262699",
+      "scrollbarSlider.activeBackground": "#262626cc",
+    },
+  });
   THEMES_DEFINED.current = true;
 }
 
@@ -384,7 +405,7 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
         ) : content !== null ? (
           <MonacoEditor
             height="100%"
-            theme={theme === "light" ? "vibe-light" : "vibe-dark"}
+            theme={theme === "light" ? "vibe-light" : theme === "codex" ? "vibe-codex" : "vibe-dark"}
             language={detectLanguage(path)}
             value={content}
             onChange={(v) => setContent(v ?? "")}
@@ -393,7 +414,7 @@ export function Editor({ path, cwd, onClose, onNavigate, openTabs, activeTab, on
               editorRef.current = ed;
             }}
             options={{
-              fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace',
+              fontFamily: '"Geist Mono", ui-monospace, Menlo, Consolas, monospace',
               fontSize: 13,
               fontLigatures: true,
               minimap: { enabled: false },

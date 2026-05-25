@@ -57,6 +57,30 @@ const LIGHT_THEME = {
   brightCyan: "#0e7490",
 };
 
+const CODEX_THEME = {
+  background: "#000000",
+  foreground: "#f5f5f5",
+  cursor: "#ffffff",
+  cursorAccent: "#000000",
+  selectionBackground: "#262626",
+  black: "#000000",
+  brightBlack: "#6b6b6b",
+  white: "#f5f5f5",
+  brightWhite: "#ffffff",
+  red: "#f87171",
+  brightRed: "#f87171",
+  green: "#86efac",
+  brightGreen: "#86efac",
+  yellow: "#fbbf24",
+  brightYellow: "#fbbf24",
+  blue: "#7dd3fc",
+  brightBlue: "#7dd3fc",
+  magenta: "#c084fc",
+  brightMagenta: "#c084fc",
+  cyan: "#67e8f9",
+  brightCyan: "#67e8f9",
+};
+
 export function TermPane({ id, visible }: Props): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<XTerm | null>(null);
@@ -69,13 +93,13 @@ export function TermPane({ id, visible }: Props): React.ReactElement {
     if (!el) return;
 
     const term = new XTerm({
-      fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
       fontSize: 13,
       cursorBlink: true,
       cursorStyle: "block",
       allowProposedApi: true,
       scrollback: 5000,
-      theme: theme === "light" ? LIGHT_THEME : DARK_THEME,
+      theme: theme === "light" ? LIGHT_THEME : theme === "codex" ? CODEX_THEME : DARK_THEME,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -130,7 +154,8 @@ export function TermPane({ id, visible }: Props): React.ReactElement {
   // Update terminal theme when the app theme changes (without remounting)
   useEffect(() => {
     if (termRef.current) {
-      termRef.current.options.theme = theme === "light" ? LIGHT_THEME : DARK_THEME;
+      termRef.current.options.theme =
+        theme === "light" ? LIGHT_THEME : theme === "codex" ? CODEX_THEME : DARK_THEME;
     }
   }, [theme]);
 

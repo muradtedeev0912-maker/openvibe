@@ -58,10 +58,7 @@ export const translations: Record<string, Dict> = {
   "settings.theme_desc": { English: "Switch between dark and light appearance", Русский: "Переключение между тёмной и светлой темой", Español: "Cambia entre apariencia oscura y clara", Deutsch: "Wechseln zwischen hellem und dunklem Erscheinungsbild", Français: "Basculer entre l'apparence sombre et claire", 中文: "在深色与浅色外观间切换" },
   "settings.theme.dark": { English: "Dark", Русский: "Тёмная", Español: "Oscuro", Deutsch: "Dunkel", Français: "Sombre", 中文: "深色" },
   "settings.theme.light": { English: "Light", Русский: "Светлая", Español: "Claro", Deutsch: "Hell", Français: "Clair", 中文: "浅色" },
-  "settings.avatar_shape": { English: "Project icon shape", Русский: "Форма иконок проектов", Español: "Forma del icono del proyecto", Deutsch: "Form der Projekt-Icons", Français: "Forme des icônes de projet", 中文: "项目图标形状" },
-  "settings.avatar_shape_desc": { English: "Square or round avatars in the project rail", Русский: "Квадратные или круглые аватары в боковой панели проектов", Español: "Avatares cuadrados o redondos en la barra de proyectos", Deutsch: "Quadratische oder runde Avatare in der Projektleiste", Français: "Avatars carrés ou ronds dans la barre des projets", 中文: "项目侧栏头像为方形或圆形" },
-  "settings.avatar_shape.square": { English: "Square", Русский: "Квадрат", Español: "Cuadrado", Deutsch: "Quadrat", Français: "Carré", 中文: "方形" },
-  "settings.avatar_shape.round": { English: "Round", Русский: "Круг", Español: "Redondo", Deutsch: "Rund", Français: "Rond", 中文: "圆形" },
+  "settings.theme.codex": { English: "Codex", Русский: "Codex", Español: "Codex", Deutsch: "Codex", Français: "Codex", 中文: "Codex" },
   "settings.composer_style": { English: "Composer style", Русский: "Стиль поля ввода", Español: "Estilo del compositor", Deutsch: "Eingabeleisten-Stil", Français: "Style du compositeur", 中文: "输入框样式" },
   "settings.composer_style_desc": { English: "Compact single-line bar or expanded multi-line box", Русский: "Компактная строка или расширенное многострочное поле", Español: "Barra compacta de una línea o cuadro extendido multilínea", Deutsch: "Kompakte einzeilige Leiste oder erweiterte mehrzeilige Box", Français: "Barre compacte sur une ligne ou bloc étendu multiligne", 中文: "紧凑单行栏或展开多行框" },
   "settings.composer_style.compact": { English: "Compact", Русский: "Компактный", Español: "Compacto", Deutsch: "Kompakt", Français: "Compact", 中文: "紧凑" },
@@ -99,6 +96,23 @@ export const translations: Record<string, Dict> = {
   "tabs.toggle_files": { English: "Toggle files", Русский: "Показать файлы", Español: "Alternar archivos", Deutsch: "Dateien umschalten", Français: "Basculer les fichiers", 中文: "切换文件" },
   "tabs.mcp_servers": { English: "MCP Servers", Русский: "MCP-серверы", Español: "Servidores MCP", Deutsch: "MCP-Server", Français: "Serveurs MCP", 中文: "MCP 服务器" },
   "tabs.snapshots": { English: "Project Snapshots", Русский: "Снимки проекта", Español: "Instantáneas del proyecto", Deutsch: "Projekt-Snapshots", Français: "Instantanés du projet", 中文: "项目快照" },
+  "tabs.changes": { English: "Changes", Русский: "Изменения", Español: "Cambios", Deutsch: "Änderungen", Français: "Modifications", 中文: "变更" },
+  "tabs.plan_model": { English: "Planner model", Русский: "Модель планировщика", Español: "Modelo del planificador", Deutsch: "Planer-Modell", Français: "Modèle du planificateur", 中文: "规划模型" },
+  "tabs.plan_indicator": { English: "Plan mode active", Русский: "Активен режим Plan", Español: "Modo Plan activo", Deutsch: "Plan-Modus aktiv", Français: "Mode Plan actif", 中文: "计划模式已开启" },
+  "plan.title": { English: "Plan", Русский: "План", Español: "Plan", Deutsch: "Plan", Français: "Plan", 中文: "计划" },
+  "plan.empty": { English: "No tasks yet. Send a request in Plan mode to start.", Русский: "Задач пока нет. Отправь запрос в режиме Plan, чтобы начать.", Español: "Aún no hay tareas. Envía una solicitud en modo Plan para empezar.", Deutsch: "Noch keine Aufgaben. Sende eine Anfrage im Plan-Modus.", Français: "Aucune tâche pour l'instant. Envoyez une demande en mode Plan pour commencer.", 中文: "暂无任务。在 Plan 模式发送请求以开始。" },
+  "plan.no_steps": { English: "Steps will appear once the AI replies", Русский: "Шаги появятся после ответа ИИ", Español: "Los pasos aparecerán cuando responda la IA", Deutsch: "Schritte erscheinen nach der KI-Antwort", Français: "Les étapes apparaîtront après la réponse de l'IA", 中文: "AI 回复后将出现步骤" },
+  "plan.clear": { English: "Clear all tasks", Русский: "Очистить все задачи", Español: "Borrar todas las tareas", Deutsch: "Alle Aufgaben löschen", Français: "Effacer toutes les tâches", 中文: "清除所有任务" },
+  "plan.clear_confirm": { English: "Delete all plan tasks for this project?", Русский: "Удалить все задачи плана для этого проекта?", Español: "¿Eliminar todas las tareas del plan?", Deutsch: "Alle Plan-Aufgaben für dieses Projekt löschen?", Français: "Supprimer toutes les tâches du plan ?", 中文: "删除该项目的所有任务？" },
+  "tabs.plan_no_models": { English: "No models connected", Русский: "Нет подключённых моделей", Español: "Sin modelos conectados", Deutsch: "Keine Modelle verbunden", Français: "Aucun modèle connecté", 中文: "未连接模型" },
+  "changes.file_changed": { English: "file changed", Русский: "файл изменён", Español: "archivo cambiado", Deutsch: "Datei geändert", Français: "fichier modifié", 中文: "个文件改动" },
+  "changes.files_changed": { English: "files changed", Русский: "файлов изменено", Español: "archivos cambiados", Deutsch: "Dateien geändert", Français: "fichiers modifiés", 中文: "个文件改动" },
+  "changes.accept": { English: "Accept", Русский: "Принять", Español: "Aceptar", Deutsch: "Übernehmen", Français: "Accepter", 中文: "接受" },
+  "changes.reject": { English: "Reject", Русский: "Отклонить", Español: "Rechazar", Deutsch: "Ablehnen", Français: "Rejeter", 中文: "拒绝" },
+  "changes.accept_all": { English: "Accept all", Русский: "Принять все", Español: "Aceptar todo", Deutsch: "Alle übernehmen", Français: "Tout accepter", 中文: "全部接受" },
+  "changes.reject_all": { English: "Reject all", Русский: "Отклонить все", Español: "Rechazar todo", Deutsch: "Alle ablehnen", Français: "Tout rejeter", 中文: "全部拒绝" },
+  "changes.none": { English: "No pending changes", Русский: "Нет ожидающих изменений", Español: "Sin cambios pendientes", Deutsch: "Keine ausstehenden Änderungen", Français: "Aucun changement en attente", 中文: "暂无变更" },
+  "changes.more_lines": { English: "more lines", Русский: "ещё строк", Español: "líneas más", Deutsch: "weitere Zeilen", Français: "lignes de plus", 中文: "更多行" },
 
   // ===== Slash help / commands =====
   "slash.help": { English: "/help    show this list\n/model   show active model and endpoint\n/new     create project from template\n/exit    quit", Русский: "/help    показать этот список\n/model   активная модель и эндпоинт\n/new     создать проект из шаблона\n/exit    выйти", Español: "/help    muestra esta lista\n/model   muestra el modelo y endpoint actuales\n/new     crear proyecto desde plantilla\n/exit    salir", Deutsch: "/help    zeigt diese Liste\n/model   aktives Modell und Endpunkt\n/new     Projekt aus Vorlage erstellen\n/exit    beenden", Français: "/help    affiche cette liste\n/model   modèle et endpoint actifs\n/new     créer un projet depuis un modèle\n/exit    quitter", 中文: "/help    显示此列表\n/model   显示当前模型和端点\n/new     从模板创建项目\n/exit    退出" },
@@ -119,6 +133,9 @@ export const translations: Record<string, Dict> = {
   "chatside.new_session": { English: "New session", Русский: "Новая сессия", Español: "Nueva sesión", Deutsch: "Neue Sitzung", Français: "Nouvelle session", 中文: "新会话" },
   "chatside.no_matches": { English: "No matches", Русский: "Нет совпадений", Español: "Sin coincidencias", Deutsch: "Keine Treffer", Français: "Aucun résultat", 中文: "无匹配项" },
   "chatside.no_sessions": { English: "No sessions yet", Русский: "Сессий пока нет", Español: "Aún no hay sesiones", Deutsch: "Noch keine Sitzungen", Français: "Aucune session", 中文: "暂无会话" },
+  "chatside.no_sessions_short": { English: "No sessions", Русский: "Нет сессий", Español: "Sin sesiones", Deutsch: "Keine Sitzungen", Français: "Aucune session", 中文: "无会话" },
+  "chatside.projects": { English: "Projects", Русский: "Проекты", Español: "Proyectos", Deutsch: "Projekte", Français: "Projets", 中文: "项目" },
+  "chatside.open_project": { English: "Open project", Русский: "Открыть проект", Español: "Abrir proyecto", Deutsch: "Projekt öffnen", Français: "Ouvrir un projet", 中文: "打开项目" },
   "chatside.more": { English: "More", Русский: "Ещё", Español: "Más", Deutsch: "Mehr", Français: "Plus", 中文: "更多" },
 
   // ===== ChatRail =====
@@ -134,10 +151,20 @@ export const translations: Record<string, Dict> = {
 
   // ===== Composer =====
   "composer.placeholder": { English: "Ask anything, type / for commands", Русский: "Проси, что хочешь, для команд /", Español: "Pregunta lo que quieras, escribe / para comandos", Deutsch: "Frag, was du willst, / für Befehle", Français: "Demandez ce que vous voulez, / pour les commandes", 中文: "想问什么都行，输入 / 调用命令" },
+  "composer.placeholder.b": { English: "Follow updates on GitHub", Русский: "Следи за обновлениями на GitHub", Español: "Sigue las actualizaciones en GitHub", Deutsch: "Verfolge Updates auf GitHub", Français: "Suis les mises à jour sur GitHub", 中文: "在 GitHub 关注更新" },
+  "composer.placeholder.c": { English: "OpenVibe — a modern IDE for developers", Русский: "OpenVibe — современная IDE для разработчиков", Español: "OpenVibe — una IDE moderna para desarrolladores", Deutsch: "OpenVibe — eine moderne IDE für Entwickler", Français: "OpenVibe — une IDE moderne pour les développeurs", 中文: "OpenVibe — 面向开发者的现代 IDE" },
   "composer.placeholder_thinking": { English: "thinking…", Русский: "думаю…", Español: "pensando…", Deutsch: "denke…", Français: "réflexion…", 中文: "思考中…" },
   "composer.stop": { English: "Stop generation", Русский: "Остановить генерацию", Español: "Detener generación", Deutsch: "Generierung stoppen", Français: "Arrêter la génération", 中文: "停止生成" },
   "composer.attach_image": { English: "Attach image", Русский: "Прикрепить изображение", Español: "Adjuntar imagen", Deutsch: "Bild anhängen", Français: "Joindre une image", 中文: "附加图片" },
   "composer.send": { English: "Send", Русский: "Отправить", Español: "Enviar", Deutsch: "Senden", Français: "Envoyer", 中文: "发送" },
+  "composer.model": { English: "Switch model", Русский: "Сменить модель", Español: "Cambiar modelo", Deutsch: "Modell wechseln", Français: "Changer de modèle", 中文: "切换模型" },
+  "composer.no_models": { English: "No models connected. Open Settings to add a provider.", Русский: "Модели не подключены. Откройте настройки, чтобы добавить провайдера.", Español: "No hay modelos conectados. Abre Configuración para añadir un proveedor.", Deutsch: "Keine Modelle verbunden. Öffne die Einstellungen, um einen Anbieter hinzuzufügen.", Français: "Aucun modèle connecté. Ouvrez les paramètres pour ajouter un fournisseur.", 中文: "尚未连接模型。请打开设置以添加提供商。" },
+  "composer.no_models_short": { English: "No models", Русский: "Нет моделей", Español: "Sin modelos", Deutsch: "Keine Modelle", Français: "Aucun modèle", 中文: "无模型" },
+  "composer.mode": { English: "Agent mode", Русский: "Режим агента", Español: "Modo del agente", Deutsch: "Agent-Modus", Français: "Mode de l'agent", 中文: "代理模式" },
+  "composer.mode.vibe": { English: "Vibe", Русский: "Vibe", Español: "Vibe", Deutsch: "Vibe", Français: "Vibe", 中文: "Vibe" },
+  "composer.mode.plan": { English: "Plan", Русский: "План", Español: "Plan", Deutsch: "Plan", Français: "Plan", 中文: "计划" },
+  "composer.group.plan": { English: "Plan", Русский: "План", Español: "Plan", Deutsch: "Plan", Français: "Plan", 中文: "计划" },
+  "composer.group.coding": { English: "Coding", Русский: "Кодинг", Español: "Codificación", Deutsch: "Coding", Français: "Codage", 中文: "编码" },
   "composer.remove": { English: "Remove", Русский: "Удалить", Español: "Quitar", Deutsch: "Entfernen", Français: "Retirer", 中文: "移除" },
   "composer.hint": { English: "Enter to send · Shift+Enter for newline · @ for files · / for commands · drop or paste images", Русский: "Enter — отправить · Shift+Enter — новая строка · @ — файлы · / — команды · перетащите или вставьте изображение", Español: "Enter para enviar · Shift+Enter para nueva línea · @ para archivos · / para comandos · arrastra o pega imágenes", Deutsch: "Enter zum Senden · Shift+Enter für neue Zeile · @ für Dateien · / für Befehle · Bilder per Drop oder Paste", Français: "Entrée pour envoyer · Maj+Entrée pour nouvelle ligne · @ pour les fichiers · / pour les commandes · déposez ou collez des images", 中文: "回车发送 · Shift+回车换行 · @ 引用文件 · / 调用命令 · 拖放或粘贴图片" },
 
@@ -185,6 +212,9 @@ export const translations: Record<string, Dict> = {
   "title.close": { English: "Close", Русский: "Закрыть", Español: "Cerrar", Deutsch: "Schließen", Français: "Fermer", 中文: "关闭" },
 
   // ===== History =====
+  "history.empty_title": { English: "What will you build today?", Русский: "Что будем создавать сегодня?", Español: "¿Qué vas a construir hoy?", Deutsch: "Was baust du heute?", Français: "Qu'allez-vous construire aujourd'hui ?", 中文: "今天你想构建什么？" },
+  "history.empty_title_b": { English: "Build anything you want. Free, for everyone.", Русский: "Создай всё, что хочешь! Бесплатно, для всех!", Español: "Crea lo que quieras. Gratis, para todos.", Deutsch: "Baue, was du willst. Kostenlos, für alle.", Français: "Construisez ce que vous voulez. Gratuit, pour tous.", 中文: "尽情创造你想要的。免费，面向所有人。" },
+  "history.empty_title_c": { English: "Drop your rules into the vibe/ folder.", Русский: "Загрузи свои правила в папку vibe/", Español: "Coloca tus reglas en la carpeta vibe/", Deutsch: "Lege deine Regeln in den Ordner vibe/", Français: "Déposez vos règles dans le dossier vibe/", 中文: "把你的规则放到 vibe/ 文件夹里" },
   "history.select_model": { English: "Select a model:", Русский: "Выберите модель:", Español: "Selecciona un modelo:", Deutsch: "Modell auswählen:", Français: "Choisir un modèle :", 中文: "选择模型：" },
   "history.templates": { English: "Project templates:", Русский: "Шаблоны проекта:", Español: "Plantillas de proyecto:", Deutsch: "Projektvorlagen:", Français: "Modèles de projet :", 中文: "项目模板：" },
   "history.click_to_copy": { English: "Click to copy", Русский: "Нажмите, чтобы скопировать", Español: "Clic para copiar", Deutsch: "Zum Kopieren klicken", Français: "Cliquer pour copier", 中文: "点击复制" },
@@ -213,6 +243,16 @@ export const translations: Record<string, Dict> = {
   "snap.show": { English: "Show", Русский: "Показать", Español: "Mostrar", Deutsch: "Anzeigen", Français: "Afficher", 中文: "显示" },
   "snap.create": { English: "Create Snapshot", Русский: "Создать снимок", Español: "Crear instantánea", Deutsch: "Snapshot erstellen", Français: "Créer un instantané", 中文: "创建快照" },
   "snap.creating": { English: "Creating...", Русский: "Создание...", Español: "Creando...", Deutsch: "Erstellen...", Français: "Création...", 中文: "创建中..." },
+
+  // ===== Skills Panel =====
+  "skills.title": { English: "Skills", Русский: "Навыки", Español: "Habilidades", Deutsch: "Skills", Français: "Compétences", 中文: "技能" },
+  "skills.desc": { English: "Long-lived knowledge taught to the AI for this project. Add by sending a chat message containing #skills with one or more attached .md/.txt files.", Русский: "Долгоживущие знания, которым вы обучаете ИИ для этого проекта. Добавьте, отправив в чат сообщение с тегом #skills и приложив один или несколько .md/.txt файлов.", Español: "Conocimiento persistente que se enseña a la IA para este proyecto. Añade enviando un mensaje con #skills y uno o más archivos .md/.txt adjuntos.", Deutsch: "Langfristiges Wissen, das der KI für dieses Projekt beigebracht wird. Füge es hinzu, indem du eine Nachricht mit #skills und angehängten .md/.txt-Dateien sendest.", Français: "Connaissances durables enseignées à l'IA pour ce projet. Ajoutez-en en envoyant un message contenant #skills avec un ou plusieurs fichiers .md/.txt joints.", 中文: "为本项目向 AI 教授的长期知识。在聊天中发送包含 #skills 的消息并附加一个或多个 .md/.txt 文件即可添加。" },
+  "skills.empty_title": { English: "No skills yet", Русский: "Навыков пока нет", Español: "Aún no hay habilidades", Deutsch: "Noch keine Skills", Français: "Aucune compétence", 中文: "暂无技能" },
+  "skills.empty_sub": { English: "Send a message with #skills and a .md or .txt attachment to teach the AI.", Русский: "Отправьте сообщение с #skills и приложите .md или .txt файл, чтобы обучить ИИ.", Español: "Envía un mensaje con #skills y un archivo .md o .txt adjunto para enseñar a la IA.", Deutsch: "Sende eine Nachricht mit #skills und einer .md- oder .txt-Datei, um der KI etwas beizubringen.", Français: "Envoyez un message avec #skills et un fichier .md ou .txt joint pour enseigner l'IA.", 中文: "发送包含 #skills 并附带 .md 或 .txt 文件的消息来教 AI。" },
+  "skills.added": { English: "Added skills: {names}", Русский: "Добавлены навыки: {names}", Español: "Habilidades añadidas: {names}", Deutsch: "Skills hinzugefügt: {names}", Français: "Compétences ajoutées : {names}", 中文: "已添加技能：{names}" },
+  "skills.clear": { English: "Clear all", Русский: "Очистить все", Español: "Borrar todo", Deutsch: "Alle löschen", Français: "Tout effacer", 中文: "清除全部" },
+  "skills.clear_confirm": { English: "Remove all skills for this project?", Русский: "Удалить все навыки для этого проекта?", Español: "¿Eliminar todas las habilidades de este proyecto?", Deutsch: "Alle Skills für dieses Projekt entfernen?", Français: "Supprimer toutes les compétences de ce projet ?", 中文: "删除该项目的所有技能？" },
+  "slash.cmd.skills": { English: "Manage AI skills for this project", Русский: "Управление навыками ИИ для проекта", Español: "Gestionar habilidades de IA para el proyecto", Deutsch: "KI-Skills für dieses Projekt verwalten", Français: "Gérer les compétences de l'IA pour ce projet", 中文: "管理本项目的 AI 技能" },
 
   // ===== Update Modal =====
   "update.title": { English: "Update Available", Русский: "Доступно обновление", Español: "Actualización disponible", Deutsch: "Update verfügbar", Français: "Mise à jour disponible", 中文: "有可用更新" },

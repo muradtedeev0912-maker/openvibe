@@ -539,8 +539,8 @@ export function SidebarToggleIcon(): React.ReactElement {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <line x1="9" y1="5" x2="9" y2="19" />
+      <rect x="3" y="5" width="18" height="14" rx="4" />
+      <line x1="9.5" y1="6.5" x2="9.5" y2="17.5" />
     </svg>
   );
 }

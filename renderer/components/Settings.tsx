@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { setCurrentLanguage, useT, type Language } from "../i18n.js";
 import { getCurrentTheme, setCurrentTheme, type Theme } from "../theme.js";
-import { getCurrentAvatarShape, setCurrentAvatarShape, type AvatarShape } from "../avatarShape.js";
-import { getCurrentComposerStyle, setCurrentComposerStyle, type ComposerStyle } from "../composerStyle.js";
 
 interface Provider {
   id: string;
@@ -94,8 +92,6 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
   const [language, setLanguage] = useState<string>(() => localStorage.getItem("vibe_language") || "English");
   const [terminalShell, setTerminalShell] = useState<string>("powershell");
   const [theme, setTheme] = useState<Theme>(getCurrentTheme);
-  const [avatarShape, setAvatarShape] = useState<AvatarShape>(getCurrentAvatarShape);
-  const [composerStyle, setComposerStyle] = useState<ComposerStyle>(getCurrentComposerStyle);
 
   // Load shell preference from main process
   useEffect(() => {
@@ -195,21 +191,9 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
   }
 
   function handleThemeChange(value: string): void {
-    const t: Theme = value === "light" ? "light" : "dark";
+    const t: Theme = value === "light" ? "light" : value === "codex" ? "codex" : "dark";
     setTheme(t);
     setCurrentTheme(t);
-  }
-
-  function handleAvatarShapeChange(value: string): void {
-    const s: AvatarShape = value === "round" ? "round" : "square";
-    setAvatarShape(s);
-    setCurrentAvatarShape(s);
-  }
-
-  function handleComposerStyleChange(value: string): void {
-    const s: ComposerStyle = value === "expanded" ? "expanded" : "compact";
-    setComposerStyle(s);
-    setCurrentComposerStyle(s);
   }
 
   if (!shouldRender) return null;
@@ -246,7 +230,7 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
               </button>
 
               <div className="settings__sidebar-footer">
-                <div className="settings__sidebar-version">OpenVibe v0.2.7</div>
+                <div className="settings__sidebar-version">OpenVibe v0.3.5</div>
                 <button
                   className="settings__sidebar-link"
                   onClick={() => window.vibe.openExternal("https://github.com/muradtedeev0912-maker/openvibe")}
@@ -312,34 +296,7 @@ export function Settings({ open, onClose, onProviderChanged }: Props): React.Rea
                       options={[
                         { value: "dark", label: t("settings.theme.dark") },
                         { value: "light", label: t("settings.theme.light") },
-                      ]}
-                    />
-                  </div>
-                  <div className="settings__row">
-                    <div className="settings__row-info">
-                      <div className="settings__row-name">{t("settings.avatar_shape")}</div>
-                      <div className="settings__row-desc">{t("settings.avatar_shape_desc")}</div>
-                    </div>
-                    <Dropdown
-                      value={avatarShape}
-                      onChange={handleAvatarShapeChange}
-                      options={[
-                        { value: "square", label: t("settings.avatar_shape.square") },
-                        { value: "round", label: t("settings.avatar_shape.round") },
-                      ]}
-                    />
-                  </div>
-                  <div className="settings__row">
-                    <div className="settings__row-info">
-                      <div className="settings__row-name">{t("settings.composer_style")}</div>
-                      <div className="settings__row-desc">{t("settings.composer_style_desc")}</div>
-                    </div>
-                    <Dropdown
-                      value={composerStyle}
-                      onChange={handleComposerStyleChange}
-                      options={[
-                        { value: "compact", label: t("settings.composer_style.compact") },
-                        { value: "expanded", label: t("settings.composer_style.expanded") },
+                        { value: "codex", label: t("settings.theme.codex") },
                       ]}
                     />
                   </div>

@@ -707,7 +707,7 @@ export function FileTree({
         </span>
         <div className="ftree__actions">
           <button className="ftree__action" title={t("ftree.new_file")} onClick={() => promptCreate(cwd, "file")}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 1.5H5a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 5 14.5h6A1.5 1.5 0 0 0 12.5 13V5L9 1.5z"/>
               <path d="M9 1.5V5h3.5"/>
               <circle cx="4.5" cy="12.5" r="2.5" fill="var(--bg)" strokeWidth="1"/>
@@ -715,7 +715,7 @@ export function FileTree({
             </svg>
           </button>
           <button className="ftree__action" title={t("ftree.new_folder")} onClick={() => promptCreate(cwd, "dir")}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1.5 4h4l1 1.5h6a1 1 0 0 1 1 1v5.5a1 1 0 0 1-1 1H5"/>
               <path d="M1.5 4v7a1 1 0 0 0 1 1h1"/>
               <circle cx="11.5" cy="12.5" r="2.5" fill="var(--bg)" strokeWidth="1"/>
@@ -723,7 +723,7 @@ export function FileTree({
             </svg>
           </button>
           <button className="ftree__action" title={t("ftree.refresh")} onClick={() => refreshAll()}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 3v3h-3"/>
               <path d="M3 8a5 5 0 0 1 8.5-3.5L13 6"/>
               <path d="M3 13v-3h3"/>
@@ -731,7 +731,7 @@ export function FileTree({
             </svg>
           </button>
           <button className="ftree__action" title={t("ftree.collapse_all")} onClick={() => setStates(new Map())}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 10h3v3"/>
               <path d="M12 6h-3V3"/>
               <path d="M9 6l5-5"/>

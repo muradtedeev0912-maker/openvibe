@@ -1,77 +1,19 @@
-import React, { useState } from "react";
-import type { Project } from "../types.js";
-import { ContextMenu, type MenuItem } from "./ContextMenu.js";
+import React from "react";
 import { SidebarToggleIcon } from "./icons.js";
 import { useT } from "../i18n.js";
 
 interface Props {
-  projects: Project[];
-  activeId: string | null;
   expanded: boolean;
-  onPick: (id: string) => void;
-  onAdd: () => void;
-  onClose: () => void;
-  onRemove: (id: string) => void;
   onToggleExpanded: () => void;
   onSettings: () => void;
 }
 
-interface Ctx {
-  x: number;
-  y: number;
-  project: Project;
-}
-
-function initial(name: string, fallback: number): string {
-  const t = name.trim();
-  if (!t) return String(fallback + 1);
-  const ch = t.replace(/[^\p{L}\p{N}]+/gu, "")[0];
-  return ch ? ch.toUpperCase() : String(fallback + 1);
-}
-
 export function ChatRail({
-  projects,
-  activeId,
   expanded,
-  onPick,
-  onAdd,
-  onClose,
-  onRemove,
   onToggleExpanded,
   onSettings,
 }: Props): React.ReactElement {
   const t = useT();
-  const [ctx, setCtx] = useState<Ctx | null>(null);
-
-  function buildItems(c: Ctx): MenuItem[] {
-    const isActive = c.project.id === activeId;
-    return [
-      ...(isActive
-        ? [
-            {
-              label: t("rail.close_project"),
-              onClick: () => onClose(),
-            },
-            { label: "-", onClick: () => {} },
-          ]
-        : []),
-      {
-        label: t("rail.open_project"),
-        disabled: isActive,
-        onClick: () => onPick(c.project.id),
-      },
-      {
-        label: t("rail.reveal_explorer"),
-        onClick: () => window.vibe.fs.reveal(c.project.path),
-      },
-      { label: "-", onClick: () => {} },
-      {
-        label: t("rail.remove_from_list"),
-        danger: true,
-        onClick: () => onRemove(c.project.id),
-      },
-    ];
-  }
 
   return (
     <div className="chatrail">
@@ -85,46 +27,6 @@ export function ChatRail({
       >
         <SidebarToggleIcon />
       </button>
-
-      <div className="chatrail__list">
-        {projects.map((p, i) => {
-          const isActive = p.id === activeId;
-          return (
-            <button
-              key={p.id}
-              className={
-                "chatrail__tile" + (isActive ? " chatrail__tile--active" : "")
-              }
-              onClick={() => onPick(p.id)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setCtx({ x: e.clientX, y: e.clientY, project: p });
-              }}
-              title={`${p.name}\n${p.path}`}
-              style={
-                isActive
-                  ? ({ "--tile-color": p.color } as React.CSSProperties)
-                  : undefined
-              }
-            >
-              <span
-                className="chatrail__avatar"
-                style={{ background: p.color }}
-              >
-                {initial(p.name, i)}
-              </span>
-            </button>
-          );
-        })}
-        <button
-          className="chatrail__add"
-          onClick={onAdd}
-          title={t("rail.open_folder")}
-          aria-label={t("rail.open_folder")}
-        >
-          +
-        </button>
-      </div>
 
       <div className="chatrail__bottom">
         <button
@@ -149,16 +51,6 @@ export function ChatRail({
           </svg>
         </button>
       </div>
-
-      {ctx ? (
-        <ContextMenu
-          x={ctx.x}
-          y={ctx.y}
-          items={buildItems(ctx)}
-          onClose={() => setCtx(null)}
-        />
-      ) : null}
-
     </div>
   );
 }

@@ -4,14 +4,17 @@
 
 import { useEffect, useState } from "react";
 
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "codex";
 
 const STORAGE_KEY = "vibe_theme";
 const EVENT_NAME = "vibe-theme-change";
 
 export function getCurrentTheme(): Theme {
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === "light" ? "light" : "dark";
+  if (v === "light") return "light";
+  if (v === "dark") return "dark";
+  if (v === "codex") return "codex";
+  return "codex";
 }
 
 export function applyTheme(theme: Theme): void {

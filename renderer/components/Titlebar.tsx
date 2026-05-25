@@ -1,12 +1,44 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useT } from "../i18n.js";
+
+/** Build a short label like "cs2/soft" from an absolute project path,
+ *  showing only the parent folder + project folder. */
+function shortPath(path: string): string {
+  const norm = path.replace(/\\/g, "/").replace(/\/+$/, "");
+  const parts = norm.split("/").filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0]!;
+  return parts.slice(-2).join("/");
+}
 
 export function Titlebar(): React.ReactElement {
   const t = useT();
+  const [label, setLabel] = useState("~open@root");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refresh(): Promise<void> {
+      const active = await window.vibe.projects.active();
+      if (cancelled) return;
+      setLabel(active ? shortPath(active.path) : "~open@root");
+    }
+    refresh();
+    // Project changes don't push events, so re-read on focus to catch
+    // switches made elsewhere (e.g. picking a different project in the rail).
+    const onFocus = (): void => { refresh(); };
+    window.addEventListener("focus", onFocus);
+    const interval = window.setInterval(refresh, 1500);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="titlebar">
       <div className="titlebar__drag">
-        <span className="titlebar__title">~open@root</span>
+        <span className="titlebar__title" title={label}>{label}</span>
       </div>
       <div className="titlebar__controls">
         <button

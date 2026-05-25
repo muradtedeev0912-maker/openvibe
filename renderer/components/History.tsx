@@ -1,8 +1,55 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { useT } from "../i18n.js";
+import { FileIcon } from "./icons.js";
+
+/** Animated typewriter that cycles through phrases.
+ *  Types char-by-char, holds, then erases char-by-char. Very gentle pace. */
+function Typewriter({ phrases }: { phrases: string[] }): React.ReactElement {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [text, setText] = useState("");
+  const [phase, setPhase] = useState<"typing" | "holding" | "erasing">("typing");
+
+  useEffect(() => {
+    if (phrases.length === 0) return;
+    const current = phrases[phraseIndex % phrases.length]!;
+
+    if (phase === "typing") {
+      if (text.length < current.length) {
+        const id = window.setTimeout(() => setText(current.slice(0, text.length + 1)), 28);
+        return () => window.clearTimeout(id);
+      }
+      const id = window.setTimeout(() => setPhase("holding"), 0);
+      return () => window.clearTimeout(id);
+    }
+
+    if (phase === "holding") {
+      const id = window.setTimeout(() => setPhase("erasing"), 1500);
+      return () => window.clearTimeout(id);
+    }
+
+    // erasing
+    if (text.length > 0) {
+      const id = window.setTimeout(() => setText(current.slice(0, text.length - 1)), 16);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.setTimeout(() => {
+      setPhraseIndex((i) => (i + 1) % phrases.length);
+      setPhase("typing");
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [text, phase, phraseIndex, phrases]);
+
+  return (
+    <span className="typewriter" aria-live="polite">
+      <span className="typewriter__text">{text}</span>
+      <span className="typewriter__caret" aria-hidden>|</span>
+    </span>
+  );
+}
 
 export interface AttachmentView {
   id: string;
@@ -14,7 +61,7 @@ export interface AttachmentView {
 
 export interface HistoryItem {
   id: string;
-  kind: "user" | "assistant" | "tool" | "info" | "error" | "model-picker" | "template-picker";
+  kind: "user" | "assistant" | "tool" | "info" | "error" | "model-picker" | "template-picker" | "skills-picker";
   text: string;
   toolName?: string;
   toolArgs?: unknown;
@@ -343,15 +390,15 @@ function ToolBlock({ item, onShowTerminal, onOpenFile, workspace }: { item: Hist
   return (
     <div className="tool-wrap">
       <div className={`tool ${stateCls}${reverted ? " tool--reverted" : ""}`} onClick={() => canExpand && setExpanded(!expanded)} style={canExpand ? { cursor: "pointer" } : undefined}>
-        <span className="tool__icon">
-          {item.ok === undefined ? (
+        {item.ok === undefined ? (
+          <span className="tool__icon">
             <SpinIcon />
-          ) : item.ok ? (
-            <CheckIcon />
-          ) : (
+          </span>
+        ) : !item.ok ? (
+          <span className="tool__icon">
             <FailIcon />
-          )}
-        </span>
+          </span>
+        ) : null}
         <span className="tool__line">
           <span className="tool__verb">{reverted ? `${verb} (reverted)` : verb}</span>
           {file ? (
@@ -476,6 +523,17 @@ function FormattedText({ text }: { text: string }): React.ReactElement {
     result = result.replace(/%%MATHBLOCK(\d+)%%/g, (_m, idx) => mathBlocks[Number(idx)] ?? "");
     result = result.replace(/%%MATHINLINE(\d+)%%/g, (_m, idx) => mathInlines[Number(idx)] ?? "");
 
+    // Sanitize the final HTML. Markdown from the AI is untrusted: a model
+    // could emit <script>, <img onerror>, or javascript: URLs and they
+    // would execute with full access to window.vibe. DOMPurify strips all
+    // dangerous elements/attributes while keeping safe markdown output
+    // (headings, lists, code blocks, links, KaTeX math, etc.).
+    result = DOMPurify.sanitize(result, {
+      ADD_TAGS: ["math", "mrow", "mi", "mn", "mo", "mfrac", "msup", "msub", "msqrt", "annotation", "semantics"],
+      ADD_ATTR: ["target", "rel"],
+      ALLOW_DATA_ATTR: false,
+    });
+
     return result;
   }, [text]);
 
@@ -486,13 +544,16 @@ interface Props {
   items: HistoryItem[];
   onPickModel?: (id: string) => void;
   onPickTemplate?: (id: string) => void;
+  onToggleSkill?: (id: string) => void;
+  onRemoveSkill?: (id: string) => void;
+  skillsList?: Array<{ id: string; name: string; size: number; enabled: boolean }>;
   streamingId?: string | null;
   onShowTerminal?: () => void;
   onOpenFile?: (path: string) => void;
   workspace?: string;
 }
 
-export function History({ items, onPickModel, onPickTemplate, streamingId, onShowTerminal, onOpenFile, workspace }: Props): React.ReactElement {
+export function History({ items, onPickModel, onPickTemplate, onToggleSkill, onRemoveSkill, skillsList, streamingId, onShowTerminal, onOpenFile, workspace }: Props): React.ReactElement {
   const t = useT();
   const ref = useRef<HTMLDivElement | null>(null);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
@@ -511,7 +572,14 @@ export function History({ items, onPickModel, onPickTemplate, streamingId, onSho
   }, [items]);
 
   return (
-    <div className="history" ref={ref}>
+    <div className={"history" + (items.length === 0 ? " history--empty" : "")} ref={ref}>
+      {items.length === 0 ? (
+        <div className="history__empty">
+          <div className="history__empty-title">
+            <Typewriter phrases={[t("history.empty_title"), t("history.empty_title_b"), t("history.empty_title_c")]} />
+          </div>
+        </div>
+      ) : null}
       {items.map((item) => {
         if (item.kind === "tool") return <ToolBlock key={item.id} item={item} onShowTerminal={onShowTerminal} onOpenFile={onOpenFile} workspace={workspace} />;
         if (item.kind === "model-picker" && item.models) {
@@ -553,34 +621,84 @@ export function History({ items, onPickModel, onPickTemplate, streamingId, onSho
             </div>
           );
         }
+        if (item.kind === "skills-picker") {
+          const list = skillsList ?? [];
+          return (
+            <div key={item.id} className="tplpicker">
+              <div className="tplpicker__title">{t("skills.title")}</div>
+              {list.length === 0 ? (
+                <div className="skillpicker__empty">{t("skills.empty_sub")}</div>
+              ) : (
+                <div className="tplpicker__grid">
+                  {list.map((s) => (
+                    <div
+                      key={s.id}
+                      className={"skillpicker__row" + (s.enabled ? "" : " skillpicker__row--off")}
+                    >
+                      <button
+                        type="button"
+                        className={"skillpicker__toggle" + (s.enabled ? " skillpicker__toggle--on" : "")}
+                        onClick={() => onToggleSkill?.(s.id)}
+                        aria-label={s.enabled ? "Disable" : "Enable"}
+                        title={s.enabled ? "Disable" : "Enable"}
+                      >
+                        <span className="skillpicker__knob" />
+                      </button>
+                      <div className="skillpicker__info">
+                        <span className="skillpicker__name">{s.name}</span>
+                        <span className="skillpicker__meta">
+                          {s.size < 1024 ? `${s.size} B` : `${(s.size / 1024).toFixed(1)} KB`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="skillpicker__remove"
+                        onClick={() => onRemoveSkill?.(s.id)}
+                        title={t("common.delete")}
+                        aria-label={t("common.delete")}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
         if (item.kind === "user") {
           return (
-            <div key={item.id} className="msg msg--user-wrap">
-              <div className="msg msg--user">{item.text}</div>
-              {item.attachments && item.attachments.length > 0 ? (
-                <div className="msg__attachments">
-                  {item.attachments.map((a) =>
-                    a.kind === "image" && a.dataUrl ? (
-                      <img
-                        key={a.id}
-                        className="msg__image"
-                        src={a.dataUrl}
-                        alt={a.name}
-                        title={a.name}
-                      />
-                    ) : (
-                      <span
-                        key={a.id}
-                        className="msg__file"
-                        title={a.path ?? a.name}
-                      >
-                        <span className="msg__file-icon">⌘</span>
-                        {a.name}
-                      </span>
-                    ),
-                  )}
-                </div>
-              ) : null}
+            <div key={item.id} className="msg-row--user">
+              <div className="msg msg--user-wrap">
+                <div className="msg msg--user">{item.text}</div>
+                {item.attachments && item.attachments.length > 0 ? (
+                  <div className="msg__attachments">
+                    {item.attachments.map((a) =>
+                      a.kind === "image" && a.dataUrl ? (
+                        <img
+                          key={a.id}
+                          className="msg__image"
+                          src={a.dataUrl}
+                          alt={a.name}
+                          title={a.name}
+                        />
+                      ) : (
+                        <span
+                          key={a.id}
+                          className="msg__file"
+                          title={a.path ?? a.name}
+                        >
+                          <span className="msg__file-icon"><FileIcon name={a.name} /></span>
+                          {a.name}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
           );
         }

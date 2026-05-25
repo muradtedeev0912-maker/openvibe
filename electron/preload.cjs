@@ -20,6 +20,11 @@ const api = {
   setModel: (model) => ipcRenderer.invoke("vibe:setModel", model),
   setProvider: (apiKey, baseUrl, model) =>
     ipcRenderer.invoke("vibe:setProvider", apiKey, baseUrl, model),
+  setLanguage: (lang) => ipcRenderer.invoke("vibe:setLanguage", lang),
+
+  skills: {
+    set: (items) => ipcRenderer.invoke("vibe:skills:set", items),
+  },
 
   chats: {
     list: () => ipcRenderer.invoke("vibe:chats:list"),
@@ -37,6 +42,11 @@ const api = {
     remove: (id) => ipcRenderer.invoke("vibe:projects:remove", id),
     rename: (id, name) => ipcRenderer.invoke("vibe:projects:rename", id, name),
     close: () => ipcRenderer.invoke("vibe:projects:close"),
+    chatsList: (id) => ipcRenderer.invoke("vibe:projects:chatsList", id),
+    deleteChat: (projectId, chatId) =>
+      ipcRenderer.invoke("vibe:projects:deleteChat", projectId, chatId),
+    renameChat: (projectId, chatId, title) =>
+      ipcRenderer.invoke("vibe:projects:renameChat", projectId, chatId, title),
   },
 
   mcp: {
@@ -137,6 +147,12 @@ const api = {
     const listener = () => cb();
     ipcRenderer.on("vibe:fs:changed", listener);
     return () => ipcRenderer.off("vibe:fs:changed", listener);
+  },
+
+  onWindowMaximized: (cb) => {
+    const listener = (_e, maximized) => cb(maximized);
+    ipcRenderer.on("vibe:window:maximized", listener);
+    return () => ipcRenderer.off("vibe:window:maximized", listener);
   },
 
 

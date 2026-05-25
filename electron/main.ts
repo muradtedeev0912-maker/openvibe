@@ -47,6 +47,18 @@ function writeShellPref(shell: ShellKind): void {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Allow only http(s) and mailto links to be opened externally. Blocks
+ *  file://, javascript:, and any custom protocols an attacker might inject
+ *  via a markdown link in an AI response. */
+function isSafeExternalUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:" || u.protocol === "mailto:";
+  } catch {
+    return false;
+  }
+}
+
 // Fix GPU cache errors on Windows when multiple instances or permission issues
 app.commandLine.appendSwitch("disk-cache-dir", join(app.getPath("userData"), "gpu-cache"));
 app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
@@ -67,7 +79,8 @@ async function createWindow(): Promise<void> {
     width: 1100,
     height: 720,
     resizable: true,
-    backgroundColor: "#161616",
+    backgroundColor: "#00000000",
+    transparent: true,
     title: "vibe",
     icon: join(__dirname, "../../assets/icon.png"),
     autoHideMenuBar: true,
@@ -84,6 +97,37 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow.maximize();
+
+  // Security: prevent the renderer from opening new windows. Any new window
+  // would inherit the preload, so we forbid them entirely. External links
+  // go through shell.openExternal (validated below).
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
+  // Security: prevent navigation away from the app shell. Renderer should
+  // only ever load the bundled HTML or the dev server.
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const allowed = process.env.VIBE_DEV_URL;
+    if (allowed && url.startsWith(allowed)) return;
+    if (url.startsWith("file://")) return;
+    event.preventDefault();
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
+  });
+
+  // Drop the rounded-corner styling when the window is maximized (Windows
+  // clips maximized windows to the screen, so the radius would just look
+  // like dead pixels in the corners).
+  const sendMaxState = (): void => {
+    if (!mainWindow) return;
+    mainWindow.webContents.send("vibe:window:maximized", mainWindow.isMaximized());
+  };
+  mainWindow.on("maximize", sendMaxState);
+  mainWindow.on("unmaximize", sendMaxState);
+  mainWindow.webContents.on("did-finish-load", sendMaxState);
 
   const devUrl = process.env.VIBE_DEV_URL;
   if (devUrl) {
@@ -242,6 +286,19 @@ ipcMain.handle("vibe:reset", () => {
   agent?.reset();
 });
 
+ipcMain.handle(
+  "vibe:skills:set",
+  (_e, items: Array<{ id: string; name: string; content: string }>) => {
+    agent?.setSkills(Array.isArray(items) ? items : []);
+    return { ok: true };
+  },
+);
+
+ipcMain.handle("vibe:setLanguage", (_e, lang: string) => {
+  agent?.setLanguage(typeof lang === "string" ? lang : "");
+  return { ok: true };
+});
+
 ipcMain.handle("vibe:chats:list", () => chatStore?.list() ?? []);
 
 ipcMain.handle("vibe:chats:new", () => {
@@ -293,6 +350,43 @@ ipcMain.handle("vibe:chats:rename", (_e, id: string, title: string) => {
 ipcMain.handle("vibe:projects:list", () => projects?.list() ?? []);
 
 ipcMain.handle("vibe:projects:active", () => projects?.getActive() ?? null);
+
+/** List chat sessions for any project without switching the active one. */
+ipcMain.handle("vibe:projects:chatsList", (_e, id: string) => {
+  if (!projects) return [];
+  const dir = projects.chatsDir(id);
+  return new ChatStore(dir).list();
+});
+
+/** Delete a chat in any project. If it's the current active chat, also reset
+ * the agent's session so the next prompt starts fresh. */
+ipcMain.handle(
+  "vibe:projects:deleteChat",
+  (_e, projectId: string, chatId: string) => {
+    if (!projects) return { ok: false };
+    const dir = projects.chatsDir(projectId);
+    new ChatStore(dir).delete(chatId);
+    if (activeChatId === chatId) {
+      activeChatId = null;
+      agent?.reset();
+    }
+    return { ok: true };
+  },
+);
+
+/** Rename a chat in any project. */
+ipcMain.handle(
+  "vibe:projects:renameChat",
+  (_e, projectId: string, chatId: string, title: string) => {
+    if (!projects) return { ok: false };
+    const store = new ChatStore(projects.chatsDir(projectId));
+    const r = store.get(chatId);
+    if (!r) return { ok: false };
+    r.title = title;
+    store.save(r);
+    return { ok: true };
+  },
+);
 
 ipcMain.handle("vibe:projects:add", async () => {
   if (!projects || !mainWindow) return null;
@@ -815,7 +909,9 @@ ipcMain.handle("vibe:checkUpdate", async () => {
 });
 
 ipcMain.handle("vibe:openExternal", (_e, url: string) => {
+  if (!isSafeExternalUrl(url)) return { ok: false };
   shell.openExternal(url);
+  return { ok: true };
 });
 
 app.whenReady().then(createWindow);

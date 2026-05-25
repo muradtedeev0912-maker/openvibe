@@ -97,6 +97,12 @@ export interface VibeApi {
   };
   setModel: (model: string) => Promise<void>;
   setProvider: (apiKey: string, baseUrl: string, model: string) => Promise<void>;
+  setLanguage: (lang: string) => Promise<{ ok: boolean }>;
+  skills: {
+    set: (
+      items: Array<{ id: string; name: string; content: string }>,
+    ) => Promise<{ ok: boolean }>;
+  };
   chats: {
     list: () => Promise<ChatSummary[]>;
     new: () => Promise<ChatSummary | null>;
@@ -112,6 +118,9 @@ export interface VibeApi {
     remove: (id: string) => Promise<Project | null>;
     rename: (id: string, name: string) => Promise<void>;
     close: () => Promise<void>;
+    chatsList: (id: string) => Promise<ChatSummary[]>;
+    deleteChat: (projectId: string, chatId: string) => Promise<{ ok: boolean }>;
+    renameChat: (projectId: string, chatId: string, title: string) => Promise<{ ok: boolean }>;
   };
   mcp: {
     list: () => Promise<Array<{ id: string; name: string; connected: boolean; toolCount: number }>>;
@@ -197,6 +206,7 @@ export interface VibeApi {
   onBusy: (cb: (busy: boolean) => void) => () => void;
   onConfirm: (cb: (p: ConfirmPayload) => void) => () => void;
   onFsChanged: (cb: () => void) => () => void;
+  onWindowMaximized: (cb: (maximized: boolean) => void) => () => void;
 
   term: {
     start: (id: string, cols: number, rows: number) => Promise<boolean>;

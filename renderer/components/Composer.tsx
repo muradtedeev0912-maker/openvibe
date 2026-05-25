@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ContentPart, FileMatch } from "../types.js";
 import { useT } from "../i18n.js";
-import { useComposerStyle } from "../composerStyle.js";
+import { useAgentMode, type AgentMode } from "../agentMode.js";
 import { FileIcon } from "./icons.js";
 import stoppedSfx from "../stoped.mp3";
 
@@ -11,11 +11,6 @@ export interface SlashCommand {
 }
 
 export const SLASH_COMMANDS: SlashCommand[] = [
-  { name: "/help", description: "Show all slash commands" },
-  { name: "/clear", description: "Clear conversation history and free context" },
-  { name: "/reset", description: "Alias for /clear" },
-  { name: "/cwd", description: "Print the current working directory" },
-  { name: "/model", description: "Show the active model and endpoint" },
   { name: "/new", description: "Create project from template" },
   { name: "/exit", description: "Quit vibe" },
 ];
@@ -43,6 +38,13 @@ interface Props {
   onSubmit: (payload: SendPayload | { slash: string }) => void;
   inject?: string | null;
   onInjected?: () => void;
+  currentModel?: string;
+  onPickModel?: (model: string, apiKey: string, baseUrl: string) => void;
+  planModel?: string;
+  onPickPlanModel?: (model: string) => void;
+  /** True when a plan task already exists with unfinished steps. Disables
+   *  re-running the planner prompt on follow-up messages. */
+  planActive?: boolean;
 }
 
 interface MentionState {
@@ -79,17 +81,31 @@ export function Composer({
   onSubmit,
   inject,
   onInjected,
+  currentModel,
+  onPickModel,
+  planModel,
+  onPickPlanModel,
+  planActive,
 }: Props): React.ReactElement {
   const t = useT();
-  const composerStyle = useComposerStyle();
+  const [agentMode, setAgentMode] = useAgentMode();
+  const [modePickerOpen, setModePickerOpen] = useState(false);
+  const modePickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!modePickerOpen) return;
+    function onDocClick(e: MouseEvent): void {
+      if (modePickerRef.current && !modePickerRef.current.contains(e.target as Node)) {
+        setModePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [modePickerOpen]);
 
   const SLASH_COMMANDS_LOCALIZED = useMemo<SlashCommand[]>(() => [
-    { name: "/help", description: t("slash.cmd.help") },
-    { name: "/clear", description: t("slash.cmd.clear") },
-    { name: "/reset", description: t("slash.cmd.reset") },
-    { name: "/cwd", description: t("slash.cmd.cwd") },
-    { name: "/model", description: t("slash.cmd.model") },
     { name: "/new", description: t("slash.cmd.new") },
+    { name: "/skills", description: t("slash.cmd.skills") },
     { name: "/exit", description: t("slash.cmd.exit") },
   ], [t]);
 
@@ -97,6 +113,7 @@ export function Composer({
   const [slashSelected, setSlashSelected] = useState(0);
   const [focused, setFocused] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [skillsTag, setSkillsTag] = useState(false);
   const [mention, setMention] = useState<MentionState>({
     active: false,
     start: -1,
@@ -108,6 +125,117 @@ export function Composer({
   const [dragOver, setDragOver] = useState(false);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelPickerClosing, setModelPickerClosing] = useState(false);
+  const [modelPickerRender, setModelPickerRender] = useState(false);
+  const modelPickerRef = useRef<HTMLDivElement | null>(null);
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; model: string; apiKey: string; baseUrl: string }>>([]);
+
+  // Drive open/close animation timeline
+  useEffect(() => {
+    if (modelPickerOpen) {
+      setModelPickerRender(true);
+      setModelPickerClosing(false);
+    } else if (modelPickerRender) {
+      setModelPickerClosing(true);
+      const t = setTimeout(() => {
+        setModelPickerRender(false);
+        setModelPickerClosing(false);
+      }, 180);
+      return () => clearTimeout(t);
+    }
+  }, [modelPickerOpen]);
+
+  // Load connected providers on mount and whenever the picker opens
+  useEffect(() => {
+    function loadProviders(): void {
+      try {
+        const saved = localStorage.getItem("vibe_providers");
+        if (!saved) { setAvailableModels([]); return; }
+        const list = JSON.parse(saved) as Array<{
+          id: string; name: string; model: string; apiKey: string; baseUrl: string; connected: boolean;
+        }>;
+        setAvailableModels(
+          list.filter((p) => p.connected && p.model).map((p) => ({
+            id: p.id, name: p.name, model: p.model, apiKey: p.apiKey, baseUrl: p.baseUrl,
+          })),
+        );
+      } catch { setAvailableModels([]); }
+    }
+    loadProviders();
+    window.addEventListener("storage", loadProviders);
+    return () => window.removeEventListener("storage", loadProviders);
+  }, [modelPickerOpen]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!modelPickerOpen) return;
+    function onDocClick(e: MouseEvent): void {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setModelPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [modelPickerOpen]);
+
+  const currentModelLabel = (() => {
+    if (availableModels.length === 0) return t("composer.no_models_short");
+    if (agentMode === "plan" && planModel) {
+      return `${planModel} + ${currentModel || "?"}`;
+    }
+    const match = availableModels.find((m) => m.model === currentModel);
+    return match ? match.model : currentModel || t("composer.no_models_short");
+  })();
+  const [hoverGroup, setHoverGroup] = useState<"plan" | "coding" | null>(null);
+
+  // Animated placeholder — types each phrase, holds, deletes, moves on
+  const PLACEHOLDER_PHRASES = useMemo(() => [
+    t("composer.placeholder"),
+    t("composer.placeholder.b"),
+    t("composer.placeholder.c"),
+  ], [t]);
+  const [animPlaceholder, setAnimPlaceholder] = useState("");
+  useEffect(() => {
+    let phraseIdx = 0;
+    let charIdx = 0;
+    let mode: "type" | "hold" | "delete" = "type";
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    function step(): void {
+      if (cancelled) return;
+      const phrase = PLACEHOLDER_PHRASES[phraseIdx]!;
+      let nextDelay = 50;
+      if (mode === "type") {
+        charIdx++;
+        setAnimPlaceholder(phrase.slice(0, charIdx));
+        if (charIdx >= phrase.length) {
+          mode = "hold";
+          nextDelay = 2000;
+        }
+      } else if (mode === "hold") {
+        mode = "delete";
+        nextDelay = 30;
+      } else {
+        charIdx--;
+        setAnimPlaceholder(phrase.slice(0, charIdx));
+        if (charIdx <= 0) {
+          mode = "type";
+          phraseIdx = (phraseIdx + 1) % PLACEHOLDER_PHRASES.length;
+          nextDelay = 250;
+        } else {
+          nextDelay = 25;
+        }
+      }
+      timeout = setTimeout(step, nextDelay);
+    }
+    step();
+    return () => {
+      cancelled = true;
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [PLACEHOLDER_PHRASES]);
 
   // Handle inject from editor selection
   useEffect(() => {
@@ -133,7 +261,7 @@ export function Composer({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
-  }, [value, attachments.length, composerStyle]);
+  }, [value, attachments.length]);
 
   useEffect(() => {
     if (!disabled) ref.current?.focus();
@@ -259,12 +387,14 @@ export function Composer({
           // skip
         }
       } else {
-        // For text files dropped from the OS we have a path on Electron via .path
+        // For text files dropped from the OS we have a path on Electron via
+        // .path (legacy) or webUtils.getPathForFile (Electron 32+).
         const anyFile = file as File & { path?: string };
+        const path = anyFile.path || window.vibe.getPathForFile(file) || undefined;
         addAttachment({
           id: newAttachId(),
           kind: "file",
-          path: anyFile.path,
+          path,
           name: file.name,
         });
       }
@@ -333,7 +463,7 @@ export function Composer({
 
   function submit(): void {
     const v = value.trim();
-    if (!v && attachments.length === 0) return;
+    if (!v && attachments.length === 0 && !skillsTag) return;
 
     if (v.startsWith("/")) {
       onSubmit({ slash: v });
@@ -342,7 +472,105 @@ export function Composer({
     }
 
     const parts: ContentPart[] = [];
-    if (v) parts.push({ type: "text", text: v });
+    if (v) {
+      // Plan mode prompt: ask the model to act as a senior architect and produce
+      // a complete strategy with explicit, copy-pastable sub-prompts for the
+      // executor model. No code, no tool calls that modify files.
+      const planPrompt = [
+        "═══════════════════════════════════════════════════════════════",
+        " STRATEGIC PLANNING MODE — deep reasoning, no code, no edits.",
+        "═══════════════════════════════════════════════════════════════",
+        "",
+        "You are the PLANNER. A separate, faster EXECUTOR will run your plan",
+        "step by step. The quality of your plan determines the quality of",
+        "everything the executor does next. Think slowly and deeply.",
+        "",
+        "## Your mission",
+        "Produce the most thoughtful, concrete, and verifiable plan",
+        "possible for the user's request. Better than what Cursor or",
+        "Claude Code would produce. The plan must be so clear that a",
+        "junior model could execute it without asking questions.",
+        "",
+        "## Hard rules",
+        "- DO NOT execute. No write_file, edit_file, run_terminal_cmd,",
+        "  create_dir, move_file, or any tool that mutates state.",
+        "- READ-ONLY tools (read_file, list_dir, grep, search) are not",
+        "  just allowed — they are EXPECTED. Use them to ground every",
+        "  assumption. A plan written without reading the code is a guess.",
+        "- DO NOT write final source code. Pseudocode is allowed inside",
+        "  Strategy steps when the algorithm needs to be specified.",
+        "- NO filler, no apologies, no questions to the user. If something",
+        "  is ambiguous, state your assumption explicitly and proceed.",
+        "- Reply in the SAME language the user wrote in.",
+        "",
+        "## Process you must follow internally (do not output the labels)",
+        "1. DISCOVERY — Map the relevant area of the codebase. Identify",
+        "   files, modules, frameworks, conventions, and existing patterns.",
+        "   Read enough source to know what's actually there.",
+        "2. ANALYSIS — Decompose the request into the smallest meaningful",
+        "   units of change. Surface hidden complexity, edge cases, and",
+        "   dependencies between units.",
+        "3. STRATEGY — Order the units into a sequence the executor can",
+        "   run mechanically. Each step must be self-contained and have",
+        "   a clear, observable outcome.",
+        "4. RISK REVIEW — For each step, ask 'how could this break?' and",
+        "   bake the answer into Done criteria.",
+        "",
+        "## Output format (Markdown, sections in this exact order)",
+        "Begin directly with `## Goal`. ALL sections are mandatory.",
+        "",
+        "## Goal",
+        "One short paragraph: what the user actually wants and why it",
+        "matters. Distinguish stated request from underlying intent.",
+        "",
+        "## Context (what I read)",
+        "- bullet list of files / folders / docs you inspected with",
+        "  read_file or list_dir, and the one fact each one gave you",
+        "- if you didn't read anything, say so explicitly and explain",
+        "  why the request didn't require code grounding",
+        "",
+        "## Assumptions & risks",
+        "- bullet list. Be specific. 'Project uses Vite' beats 'modern",
+        "  build tool'. For each risk, name the mitigation in the plan.",
+        "",
+        "## Strategy",
+        "An ORDERED Markdown list (`1.`, `2.`, ...) of concrete top-level",
+        "steps. Each step is one actionable task the executor will",
+        "perform in a single run. Use 2-space indented `-` sub-steps for",
+        "finer detail. Be specific: name files, functions, libraries,",
+        "commands. Aim for 5–15 top-level steps; split anything that",
+        "feels like 'and then' into two steps.",
+        "",
+        "Each top-level step MUST follow this micro-format:",
+        "",
+        "  N. <imperative verb phrase — what changes>",
+        "     - File(s): `path/to/file` (and others if needed)",
+        "     - Why: one sentence linking it back to the Goal",
+        "     - Done when: a verifiable condition (build passes, this",
+        "       symbol exists, this command returns 0, this test green)",
+        "",
+        "## Files to touch",
+        "- `path/to/file` — what changes and why",
+        "  Include NEW files explicitly. Mark anything you'd remove.",
+        "",
+        "## Done criteria",
+        "- bullet list of verifiable conditions for the WHOLE task. The",
+        "  executor must be able to mechanically check each one.",
+        "",
+        "## Open questions",
+        "- bullets, only if a critical decision was made on assumption.",
+        "  Flag them so the user can correct course before you execute.",
+        "  If there are none, write `- none`.",
+        "",
+        "Begin your response directly with `## Goal`. Nothing before it.",
+        "",
+        "User request:",
+      ].join("\n");
+      const text = agentMode === "plan" && !planActive
+        ? `${planPrompt}\n${v}`
+        : v;
+      parts.push({ type: "text", text });
+    }
     // images first if present (some providers prefer that order, doesn't matter)
     for (const a of attachments) {
       if (a.kind === "image" && a.dataUrl) {
@@ -366,9 +594,10 @@ export function Composer({
       if (idx >= 0) parts[idx] = { type: "text", text: merged };
       else parts.unshift({ type: "text", text: merged });
     }
-    onSubmit({ parts, display: v, attachments: attachments.slice() });
+    onSubmit({ parts, display: skillsTag ? `#skills ${v}` : v, attachments: attachments.slice() });
     setValue("");
     setAttachments([]);
+    setSkillsTag(false);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
@@ -449,7 +678,16 @@ export function Composer({
   }
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
-    const text = e.target.value;
+    let text = e.target.value;
+    // When user types `#skills ` (with trailing space), promote it to a chip
+    // and strip the token from the textarea. Idempotent — only fires once.
+    const re = /(?:^|\s)#skills(\s)/i;
+    const m = re.exec(text);
+    if (m) {
+      const start = m.index + (m[0].startsWith("#") ? 0 : 1);
+      text = text.slice(0, start) + text.slice(start + "#skills".length + 1);
+      setSkillsTag(true);
+    }
     setValue(text);
     setSlashSelected(0);
     const caret = e.target.selectionStart;
@@ -529,8 +767,30 @@ export function Composer({
         </div>
       ) : null}
 
-      {attachments.length > 0 ? (
+      {attachments.length > 0 || skillsTag ? (
         <div className="composer__chips">
+          {skillsTag ? (
+            <div className="chip chip--skill" title="#skills">
+              <span className="chip__icon" aria-hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+              </span>
+              <span className="chip__name">Skill</span>
+              <button
+                className="chip__remove"
+                onClick={() => setSkillsTag(false)}
+                aria-label={t("composer.remove")}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          ) : null}
           {attachments.map((a) => (
             <div
               key={a.id}
@@ -564,26 +824,47 @@ export function Composer({
           (focused ? " composer__box--focus" : "") +
           (disabled ? " composer__box--disabled" : "")
         }
+        onMouseDown={(e) => {
+          // Click anywhere inside the box (that isn't a button or the textarea itself)
+          // should focus the textarea so the cursor never gets stuck after popups/dialogs.
+          const target = e.target as HTMLElement;
+          if (
+            target === e.currentTarget ||
+            target.tagName === "DIV" ||
+            target.tagName === "SPAN"
+          ) {
+            e.preventDefault();
+            ref.current?.focus();
+          }
+        }}
       >
         <span className="composer__caret">›</span>
-        <textarea
-          ref={ref}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          onChange={onChange}
-          onSelect={onSelect}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-          placeholder={
-            disabled
-              ? t("composer.placeholder_thinking")
-              : t("composer.placeholder")
-          }
-          spellCheck={false}
-        />
+        <div className="composer__input-wrap">
+          <textarea
+            ref={ref}
+            rows={1}
+            value={value}
+            disabled={disabled}
+            onChange={onChange}
+            onSelect={onSelect}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            placeholder={disabled ? "" : animPlaceholder}
+            spellCheck={false}
+          />
+        </div>
+        {disabled && !value ? (
+          <div className="composer__thinking" aria-hidden="true">
+            <span className="grid-icon">
+              <span /><span /><span />
+              <span /><span /><span />
+              <span /><span /><span />
+            </span>
+            <span className="composer__thinking-text">{t("composer.placeholder_thinking")}</span>
+          </div>
+        ) : null}
         <input
           ref={fileInputRef}
           type="file"
@@ -607,6 +888,140 @@ export function Composer({
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
           </svg>
         </button>
+        <div className="composer__bottom-left">
+          <div
+            className={"composer__model" + (modelPickerOpen ? " composer__model--open" : "")}
+            ref={modelPickerRef}
+          >
+          <button
+            type="button"
+            className="composer__model-trigger"
+            onClick={() => setModelPickerOpen((o) => !o)}
+            disabled={availableModels.length === 0}
+            title={availableModels.length === 0 ? t("composer.no_models") : t("composer.model")}
+          >
+            <span className="composer__model-label">{currentModelLabel}</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {modelPickerRender && availableModels.length > 0 ? (
+            <div className={"composer__model-menu" + (modelPickerClosing ? " composer__model-menu--closing" : "")}>
+              {agentMode === "plan" ? (
+                <>
+                  <div
+                    className={"composer__group" + (hoverGroup === "plan" ? " composer__group--active" : "")}
+                    onMouseEnter={() => setHoverGroup("plan")}
+                  >
+                    <div className="composer__group-label">
+                      <span>{t("composer.group.plan")}</span>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                    </div>
+                    {hoverGroup === "plan" ? (
+                      <div className="composer__submenu">
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={"composer__model-option" + (m.model === planModel ? " composer__model-option--active" : "")}
+                            onClick={() => {
+                              onPickPlanModel?.(m.model);
+                              setModelPickerOpen(false);
+                            }}
+                          >
+                            <span className="composer__model-option-id">{m.model}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div
+                    className={"composer__group" + (hoverGroup === "coding" ? " composer__group--active" : "")}
+                    onMouseEnter={() => setHoverGroup("coding")}
+                  >
+                    <div className="composer__group-label">
+                      <span>{t("composer.group.coding")}</span>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                    </div>
+                    {hoverGroup === "coding" ? (
+                      <div className="composer__submenu">
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={"composer__model-option" + (m.model === currentModel ? " composer__model-option--active" : "")}
+                            onClick={() => {
+                              onPickModel?.(m.model, m.apiKey, m.baseUrl);
+                              setModelPickerOpen(false);
+                            }}
+                          >
+                            <span className="composer__model-option-id">{m.model}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                availableModels.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={
+                      "composer__model-option" +
+                      (m.model === currentModel ? " composer__model-option--active" : "")
+                    }
+                    onClick={() => {
+                      onPickModel?.(m.model, m.apiKey, m.baseUrl);
+                      setModelPickerOpen(false);
+                    }}
+                  >
+                    <span className="composer__model-option-id">{m.model}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          className={"composer__model composer__mode" + (modePickerOpen ? " composer__model--open" : "")}
+          ref={modePickerRef}
+          style={{ marginLeft: 4 }}
+        >
+          <button
+            type="button"
+            className="composer__model-trigger"
+            onClick={() => setModePickerOpen((o) => !o)}
+            title={t("composer.mode")}
+          >
+            <span className="composer__model-label">{agentMode === "plan" ? t("composer.mode.plan") : t("composer.mode.vibe")}</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {modePickerOpen ? (
+            <div className="composer__model-menu">
+              {(["vibe", "plan"] as AgentMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={
+                    "composer__model-option" +
+                    (m === agentMode ? " composer__model-option--active" : "")
+                  }
+                  onClick={() => {
+                    setAgentMode(m);
+                    setModePickerOpen(false);
+                  }}
+                >
+                  <span className="composer__model-option-id">{m === "plan" ? t("composer.mode.plan") : t("composer.mode.vibe")}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        </div>
         {disabled ? (
           <button
             type="button"
@@ -623,7 +1038,7 @@ export function Composer({
           <button
             type="button"
             className="composer__icon composer__icon--send"
-            disabled={!value.trim() && attachments.length === 0}
+            disabled={!value.trim() && attachments.length === 0 && !skillsTag}
             onClick={() => submit()}
             title={t("composer.send")}
             aria-label={t("composer.send")}
