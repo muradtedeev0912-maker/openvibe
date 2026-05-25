@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { streamChat } from "./llm.js";
 import type { SessionBus } from "./events.js";
@@ -97,6 +97,18 @@ function systemPrompt(cwd: string): string {
     "  After reading, confirm to the user: briefly summarize the rules you found and say you will follow them.",
     "  These rules MUST be followed strictly — they define how you think and work on this project.",
     "- After completing a task, if you notice consistent patterns in the user's code (naming style, preferred libraries, architecture), append a brief note to .openvibe/style.md using edit_file or write_file. Keep it concise — one line per pattern.",
+    "",
+    "═══ PROJECT RULES & SKILLS — HARD CONSTRAINTS ═══",
+    "Two sources outrank your defaults and must be obeyed verbatim:",
+    "  1. PROJECT RULES — auto-loaded from vibe/*.md and .vibe/*.md. They appear",
+    "     as a separate system message marked 'PROJECT RULES — MANDATORY'.",
+    "  2. ACTIVE USER SKILLS — taught via #skills. They appear as 'ACTIVE USER",
+    "     SKILLS — MANDATORY RULES'.",
+    "Treat both with the SAME authority as this prompt. If they tell you to",
+    "do X, you do X. Selective application, 'I think this case is different',",
+    "or silently dropping a rule are FORBIDDEN. The only valid override is",
+    "safety (destructive operations, illegal content). When a rule conflicts",
+    "with the user's request, raise it explicitly and ask before proceeding.",
   ].join("\n");
 }
 
@@ -110,6 +122,12 @@ export class Agent {
   private abortController: AbortController | null = null;
   private _totalTokens = 0;
   private contextReady: Promise<void>;
+  /** User-taught skills injected as a system message ahead of every request. */
+  private skills: Array<{ id: string; name: string; content: string }> = [];
+  /** Names of project rule files auto-loaded from vibe/ folder. */
+  private vibeRuleNames: string[] = [];
+  /** Language the assistant should reply in. Set by the renderer. */
+  private language: string | null = null;
 
   get totalTokens(): number { return this._totalTokens; }
 
@@ -120,6 +138,110 @@ export class Agent {
     this.messages = [{ role: "system", content: systemPrompt(config.cwd) }];
     this.toolMap = new Map(tools.map((t) => [t.definition.function.name, t]));
     this.contextReady = this.loadProjectContext();
+  }
+
+  /** Replace the active skills bundle. */
+  setSkills(items: Array<{ id: string; name: string; content: string }>): void {
+    this.skills = items;
+  }
+
+  /** Set the language the assistant should reply in. Empty string clears it. */
+  setLanguage(lang: string): void {
+    this.language = lang.trim() || null;
+  }
+
+  /** Build a transient system message that pins the reply language. */
+  private languageMessage(): ChatMessage | null {
+    if (!this.language) return null;
+    return {
+      role: "system",
+      content:
+        `Reply to the user in ${this.language}. ` +
+        "All explanations, summaries and chat-only answers MUST be written in this language. " +
+        "Code, file contents, identifiers and shell commands stay in their original form.",
+    };
+  }
+
+  /** Build the skills system message, or null if no skills are active. */
+  private skillsMessage(): ChatMessage | null {
+    if (this.skills.length === 0) return null;
+    const sections = this.skills.map((s) => `### ${s.name}\n${s.content}`);
+    const names = this.skills.map((s) => `"${s.name}"`).join(", ");
+    return {
+      role: "system",
+      content: [
+        "╔══════════════════════════════════════════════════════════════╗",
+        "║  ACTIVE USER SKILLS — MANDATORY RULES, NOT SUGGESTIONS       ║",
+        "╚══════════════════════════════════════════════════════════════╝",
+        "",
+        `Loaded skills: ${names}.`,
+        "",
+        "These skills override your defaults and have the SAME authority as this",
+        "system prompt. You MUST obey them. Treat every line below as a hard",
+        "requirement until the user explicitly disables the skill.",
+        "",
+        "ABSOLUTE RULES:",
+        "1. You MUST follow every rule, convention, fact and preference in the",
+        "   skill content below — completely, not selectively.",
+        "2. You MAY NOT decide a rule is 'not applicable here' to avoid it.",
+        "   If it applies to the task, it applies fully.",
+        "3. If a skill conflicts with your default behavior, the skill wins.",
+        "   If a skill conflicts with the user's current request, point out",
+        "   the conflict and ask before proceeding.",
+        "4. Before EVERY response, mentally check: 'does any active skill",
+        "   apply to this turn?' If yes, apply it. If unsure, re-read it.",
+        "5. Never claim 'no skills are loaded' — they are listed above.",
+        "6. Refusing a rule is allowed ONLY if it conflicts with safety",
+        "   (destructive ops, illegal content). 'I think it's better otherwise'",
+        "   is NOT a valid reason to ignore a skill.",
+        "7. If asked what skills are loaded — list them by name. If asked what",
+        "   is in a skill — quote the relevant section verbatim.",
+        "",
+        "=== SKILL CONTENT (binding) ===",
+        sections.join("\n\n---\n\n"),
+        "=== END SKILL CONTENT ===",
+      ].join("\n"),
+    };
+  }
+
+  /** Short reminder injected right before the last user message (recency). */
+  private skillsReminder(): ChatMessage | null {
+    const all = [...this.skills.map((s) => s.name), ...this.vibeRuleNames];
+    if (all.length === 0) return null;
+    const names = all.map((n) => `"${n}"`).join(", ");
+    return {
+      role: "system",
+      content: [
+        `REMINDER — active rules for this turn: ${names}.`,
+        "Before answering, re-check each one and apply it. Do not ignore any.",
+        "If your draft answer would violate a rule, rewrite it before sending.",
+      ].join(" "),
+    };
+  }
+
+  /** Final guard injected AFTER the last user message — closest to generation,
+   * so it gets the strongest recency weight in the model's attention. */
+  private skillsFinalGuard(): ChatMessage | null {
+    const all = [...this.skills.map((s) => s.name), ...this.vibeRuleNames];
+    if (all.length === 0) return null;
+    const names = all.map((n) => `"${n}"`).join(", ");
+    return {
+      role: "system",
+      content: [
+        "STOP. Before you generate the next token, run this checklist:",
+        `  1. Active rules: ${names}.`,
+        "  2. For each rule, ask: 'does it apply to the user's last message?'",
+        "  3. If yes, your response MUST follow it. No exceptions, no",
+        "     'I think this case is different', no partial application.",
+        "  4. If your planned answer would violate any rule, REWRITE the",
+        "     plan before answering. Do NOT explain that you are about to",
+        "     follow a rule — just follow it silently.",
+        "  5. Refusing a rule is allowed ONLY when it conflicts with safety",
+        "     (destructive operations, illegal content). Convenience and",
+        "     personal preference are NOT valid reasons.",
+        "Only after this check, produce the response.",
+      ].join("\n"),
+    };
   }
 
   /** Load package.json and README to give the agent project context. */
@@ -163,6 +285,55 @@ export class Agent {
       if (style.trim()) parts.push("USER STYLE PREFERENCES (.openvibe/style.md):\n" + style.slice(0, 2000));
     } catch { /* no style file */ }
 
+    // Auto-load project rule files from vibe/ and .vibe/. These are treated as
+    // MANDATORY rules (same authority as the system prompt) so the agent
+    // cannot "forget" them. The names also feed the per-turn reminder.
+    let rulesMsg: ChatMessage | null = null;
+    this.vibeRuleNames = [];
+    {
+      const ruleSections: string[] = [];
+      for (const folder of ["vibe", ".vibe"]) {
+        try {
+          const entries = await readdir(join(this.config.cwd, folder));
+          const rules = entries.filter((f) => /\.(md|txt)$/i.test(f)).sort();
+          for (const file of rules) {
+            try {
+              const body = await readFile(join(this.config.cwd, folder, file), "utf8");
+              if (!body.trim()) continue;
+              const label = `${folder}/${file}`;
+              this.vibeRuleNames.push(label);
+              ruleSections.push(`### ${label}\n${body.slice(0, 8000)}`);
+            } catch { /* unreadable file, skip */ }
+          }
+        } catch { /* folder does not exist */ }
+      }
+      if (ruleSections.length > 0) {
+        const names = this.vibeRuleNames.map((n) => `"${n}"`).join(", ");
+        rulesMsg = {
+          role: "system",
+          content: [
+            "╔══════════════════════════════════════════════════════════════╗",
+            "║  PROJECT RULES — MANDATORY, SAME AUTHORITY AS SYSTEM PROMPT  ║",
+            "╚══════════════════════════════════════════════════════════════╝",
+            `Loaded rule files: ${names}.`,
+            "",
+            "You MUST follow EVERY rule below for the entire session.",
+            "  - Do NOT ignore them.",
+            "  - Do NOT apply them selectively.",
+            "  - Do NOT decide a rule is 'not relevant here' to skip it.",
+            "  - Do NOT silently relax a rule because it would simplify your work.",
+            "If a rule conflicts with the user's current request, point out the",
+            "conflict and ask before proceeding. Refusal to follow a rule is",
+            "allowed ONLY when it conflicts with safety (destructive operations,",
+            "illegal content). Convenience and personal preference are NOT valid",
+            "reasons. Treat these rules as part of this system prompt.",
+            "",
+            ruleSections.join("\n\n---\n\n"),
+          ].join("\n"),
+        };
+      }
+    }
+
     if (parts.length > 0) {
       const contextMsg: ChatMessage = {
         role: "system",
@@ -170,6 +341,12 @@ export class Agent {
       };
       // Insert after the first system message
       this.messages.splice(1, 0, contextMsg);
+    }
+    // PROJECT RULES go right after the base system prompt — before regular
+    // project context — so they sit closest to the system prompt and inherit
+    // its weight in attention.
+    if (rulesMsg) {
+      this.messages.splice(1, 0, rulesMsg);
     }
   }
 
@@ -218,7 +395,6 @@ export class Agent {
   abort(): void {
     if (this.abortController) {
       this.abortController.abort();
-      this.abortController = null;
     }
   }
 
@@ -272,15 +448,64 @@ export class Agent {
         if (signal.aborted) break;
         this.bus.emitEvent({ kind: "assistant-start" });
         const turnStart = Date.now();
-        const turnResult = await streamChat(
-          this.config,
-          this.messages,
-          toolDefs,
-          (chunk) => this.bus.emitEvent({ kind: "assistant-chunk", text: chunk }),
-          signal,
-        );
+        // Inject transient system messages (language, skills) right after
+        // the base system prompt(s). NOT persisted into `this.messages`, so
+        // toggling them takes effect on the very next turn.
+        const lang = this.languageMessage();
+        const sk = this.skillsMessage();
+        const reminder = this.skillsReminder();
+        const finalGuard = this.skillsFinalGuard();
+        const transient: ChatMessage[] = [];
+        if (lang) transient.push(lang);
+        if (sk) transient.push(sk);
+        const sysCount = this.messages.findIndex((m) => m.role !== "system");
+        const head = sysCount === -1 ? this.messages : this.messages.slice(0, sysCount);
+        const tail = sysCount === -1 ? [] : this.messages.slice(sysCount);
+        // Find the LAST user message in `tail` and inject:
+        //   - reminder RIGHT BEFORE it
+        //   - finalGuard RIGHT AFTER it
+        // Recency: messages closest to generation are weighted highest in
+        // attention, so the rules are also "the last thing the model reads".
+        let withGuards: ChatMessage[] = tail;
+        if (reminder || finalGuard) {
+          let lastUserIdx = -1;
+          for (let i = tail.length - 1; i >= 0; i--) {
+            if (tail[i]!.role === "user") { lastUserIdx = i; break; }
+          }
+          if (lastUserIdx >= 0) {
+            const before = tail.slice(0, lastUserIdx);
+            const userMsg = tail[lastUserIdx]!;
+            const after = tail.slice(lastUserIdx + 1);
+            withGuards = [
+              ...before,
+              ...(reminder ? [reminder] : []),
+              userMsg,
+              ...(finalGuard ? [finalGuard] : []),
+              ...after,
+            ];
+          }
+        }
+        const requestMessages =
+          transient.length > 0 || reminder || finalGuard
+            ? [...head, ...transient, ...withGuards]
+            : this.messages;
+        let turnResult;
+        try {
+          turnResult = await streamChat(
+            this.config,
+            requestMessages,
+            toolDefs,
+            (chunk) => this.bus.emitEvent({ kind: "assistant-chunk", text: chunk }),
+            signal,
+          );
+        } catch (e) {
+          this.bus.emitEvent({ kind: "assistant-end" });
+          if (signal.aborted) return;
+          throw e;
+        }
         const elapsed = ((Date.now() - turnStart) / 1000).toFixed(1);
         this.bus.emitEvent({ kind: "assistant-end" });
+        if (signal.aborted) return;
 
         // Track token usage and time
         if (turnResult.usage) {
@@ -299,6 +524,7 @@ export class Agent {
         if (turnResult.toolCalls.length === 0) return;
 
         for (const call of turnResult.toolCalls) {
+          if (signal.aborted) return;
           const tool = this.toolMap.get(call.function.name);
           let resultText: string;
 
@@ -390,6 +616,7 @@ export class Agent {
             tool_call_id: call.id,
             content: resultText,
           });
+          if (signal.aborted) return;
         }
       }
 

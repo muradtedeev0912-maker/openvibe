@@ -117,7 +117,6 @@ export async function streamChat(
         if (match) waitMs = Math.ceil(parseFloat(match[1]!) * 1000) + 500;
         // For 413 (payload too large) — trim context and retry immediately
         if (res.status === 413) {
-          onDelta("[context too long, trimming history…]");
           trimMessages(messages);
           await new Promise((r) => setTimeout(r, 1000));
           continue;
@@ -132,7 +131,7 @@ export async function streamChat(
       }
       // Cap wait at 60s
       waitMs = Math.min(waitMs, 60000);
-      onDelta(`[rate limited, retrying in ${Math.ceil(waitMs / 1000)}s…]`);
+      // Silent retry — don't pollute the chat with rate-limit notices
       await new Promise((r) => setTimeout(r, waitMs));
       continue;
     }
