@@ -1,6 +1,6 @@
 {
   "name": "openvibe",
-  "version": "0.2.7",
+  "version": "0.3.5",
   "description": "Open-source agentic coding environment. Bring your own AI model.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "mt-studio <mt-studio@bk.ru>",
@@ -24,11 +24,13 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/geist-mono": "^5.2.8",
+    "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/silkscreen": "^5.2.8",
     "@monaco-editor/react": "^4.7.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "dompurify": "^3.4.5",
     "katex": "^0.16.47",
     "marked": "^18.0.4",
     "monaco-editor": "^0.52.2",
@@ -37,6 +39,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/katex": "^0.16.8",
     "@types/node": "^20.11.0",
     "@types/react": "^18.3.29",
