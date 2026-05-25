@@ -79,13 +79,13 @@ Open Settings, connect a provider (OpenAI, Anthropic, Groq, DeepSeek, Gemini, Ol
 
 Any OpenAI-compatible API. Verified with:
 
-- OpenAI: GPT-4o, GPT-4o-mini, o1
-- Anthropic Claude 3.5 Sonnet via proxy
-- Google Gemini 1.5 Pro and Flash
-- Groq: Llama 3.3, Mixtral
-- DeepSeek-V3, DeepSeek-R1
-- Ollama: Llama, Qwen, Mistral, and other local models
-- LM Studio, vLLM, OpenRouter, GitHub Models
+- OpenAI: All Models
+- Anthropic All Models via proxy
+- Google All Models
+- Groq: All Models
+- DeepSeek: All Models
+- Ollama: All local models
+- LM Studio: All
 
 ## Plan mode
 
